@@ -1,5 +1,5 @@
 # 🎯 FlowForge
-<img width="3780" height="1890" alt="thumbnail" src="https://github.com/user-attachments/assets/4b0870fd-2e33-466e-a377-4e23472be421" />
+
 
 > "Write backend logic the way you explain it to a friend."
 > 

@@ -8,8 +8,6 @@ FlowForge is a visual backend builder powered by [Motia](https://motia.dev/)'s s
 
 The system parses English → generates Motia workflow steps → connects nodes → deploys instantly.
 
-<img width="1920" height="867" alt="landing (1)" src="https://github.com/user-attachments/assets/13b46907-d2b0-4c2a-b5b5-82239fabf656" />
-
 ---
 
 ## ✨ What Can You Build?
@@ -51,8 +49,6 @@ The system automatically creates:
 - ✅ Input Schema Node (validates name, email, password)
 - ✅ Database Insert Node (MongoDB)
 - ✅ Email Sender Node (NodeMailer)
-
-<img width="1920" height="867" alt="builder" src="https://github.com/user-attachments/assets/3156bdd3-17e8-4b1b-8093-4b3546debf06" />
 
 ### 3️⃣ Edit Visually (Optional)
 
@@ -394,8 +390,7 @@ npm start
 
 ### API Access
 
-## 📹 Demo Video
-https://github.com/user-attachments/assets/cc7e5f2d-8511-41a8-8cb2-fe73fb9cac0e
+
 
 Watch the full demo showing:
 - AI workflow generation

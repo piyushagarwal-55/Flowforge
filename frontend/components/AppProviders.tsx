@@ -11,11 +11,11 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     console.error("[AppProviders] ❌ NEXT_PUBLIC_TAMBO_API_KEY not found");
   }
 
+  // Removed MotiaClientProvider - WebSocket not needed for current implementation
+  // All backend communication uses HTTP/REST APIs
   return (
     <TamboProvider apiKey={apiKey || ""}>
-      <MotiaClientProvider>
-        <ClientProvider>{children}</ClientProvider>
-      </MotiaClientProvider>
+      <ClientProvider>{children}</ClientProvider>
     </TamboProvider>
   );
 }

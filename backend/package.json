@@ -16,9 +16,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@huggingface/inference": "^4.13.5",
-    "@motiadev/adapter-bullmq-events": "^0.17.6-beta.187",
     "@motiadev/core": "^0.17.6-beta.187",
-    "@motiadev/plugin-bullmq": "^0.17.6-beta.187",
     "@motiadev/plugin-endpoint": "^0.17.6-beta.187",
     "@motiadev/plugin-logs": "^0.17.6-beta.187",
     "@motiadev/plugin-observability": "^0.17.6-beta.187",

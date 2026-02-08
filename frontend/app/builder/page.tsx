@@ -118,7 +118,7 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
       (async () => {
         try {
           const response = await fetch(
-            `http://localhost:3000/workflows/${workflowId}?ownerId=${ownerId}`
+            `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/workflows/${workflowId}?ownerId=${ownerId}`
           );
 
           console.log(`[WorkflowPage] 📡 Fetch response`, {
@@ -224,7 +224,7 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
         });
 
         const response = await fetch(
-          `http://localhost:3000/workflows/${workflowId}?ownerId=${ownerId}`
+          `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/workflows/${workflowId}?ownerId=${ownerId}`
         );
 
         if (!response.ok) {
@@ -411,7 +411,7 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
     (async () => {
       setIsGenerating(true);
       try {
-          const res = await fetch("http://localhost:3000/workflow/generate", {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/workflow/generate`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
@@ -482,7 +482,7 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
               .slice(0, 4)
               .join("-");
 
-            const saveRes = await fetch("http://localhost:3000/workflows/save", {
+            const saveRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/workflows/save`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -571,7 +571,7 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
     setIsGenerating(true);
 
     try {
-      const res = await fetch("http://localhost:3000/workflow/generate", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/workflow/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
@@ -659,7 +659,7 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
       const payload = buildForSave(nodes, edges);
       const inputVariables = extractInputVariables(nodes);
 
-      const res = await fetch("http://localhost:3000/workflows/save", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/workflows/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -707,7 +707,7 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
 
     const payload = buildForExecute(nodes, edges);
 
-    const res = await fetch("http://localhost:3000/workflow/execute", {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/workflow/execute`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

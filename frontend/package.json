@@ -40,7 +40,8 @@
     "socket.io-client": "^4.8.1",
     "sury": "^10.0.4",
     "tailwindcss": "^4.1.18",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "valibot": "^1.2.0"
   },
   "devDependencies": {
     "@types/node": "^20",

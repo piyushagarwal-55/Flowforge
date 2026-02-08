@@ -4,7 +4,7 @@ export const config: EventConfig = {
   name: "delay",
   type: "event",
   subscribes: ["delay"],
-  emits: ["workflow.delay"],
+  emits: ["workflow.run"], // Continue workflow after delay
 
   infrastructure: {
     queue: {
@@ -22,15 +22,20 @@ export const handler: StepHandler<typeof config> = async (payload, ctx) => {
   const delaySeconds = Number(step.seconds || 0);
 
   logger.info(
-    `⏳ Delay step triggered — scheduling resume in ${delaySeconds}s`
+    `⏳ Delay step triggered — waiting ${delaySeconds}s before continuing`
   );
 
+  // Actually wait for the delay
+  await new Promise((resolve) => setTimeout(resolve, delaySeconds * 1000));
+
+  logger.info(`✅ Delay complete — continuing workflow`);
+
+  // Continue workflow execution
   await emit({
-    topic: "workflow.delay",
+    topic: "workflow.run",
     data: {
-      delaySeconds,
       steps,
-      index,
+      index: index + 1, // Move to next step
       vars,
       executionId,
     },

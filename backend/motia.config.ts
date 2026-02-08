@@ -5,6 +5,13 @@ import observabilityPlugin from '@motiadev/plugin-observability/plugin'
 import statesPlugin from '@motiadev/plugin-states/plugin'
 import bullmqPlugin from '@motiadev/plugin-bullmq/plugin'
 
+const isProd = process.env.NODE_ENV === 'production'
+
 export default defineConfig({
   plugins: [observabilityPlugin, statesPlugin, endpointPlugin, logsPlugin, bullmqPlugin],
+  // Disable memory-intensive dev features in production
+  server: isProd ? {
+    hmr: false,
+    workbench: false,
+  } : undefined,
 })

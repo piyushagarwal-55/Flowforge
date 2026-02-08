@@ -1,4 +1,7 @@
 services:
+  # Note: Free tier has 512MB RAM limit. If OOM errors persist:
+  # 1. Upgrade to Starter plan ($7/mo, 2GB RAM) in Render dashboard
+  # 2. Or use Railway/Fly.io which have more generous free tiers
   - type: web
     name: orchestrix-backend
     runtime: node
@@ -7,6 +10,12 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=460 --optimize-for-size --gc-interval=100
+      - key: MOTIA_ENV
+        value: production
+      - key: WEB_CONCURRENCY
+        value: 1
       - key: MONGODB_URI
         sync: false
       - key: AI_PROVIDER

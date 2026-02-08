@@ -24,7 +24,7 @@ export default function NodeEditorModal({
 
   if (!selectedNode) return null;
 
-  const config = NODE_CONFIGS[selectedNode.type];
+  const config = NODE_CONFIGS[selectedNode.type as keyof typeof NODE_CONFIGS];
 
   return (
     <>

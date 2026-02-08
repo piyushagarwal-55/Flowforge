@@ -40,27 +40,26 @@ import { useExecutionStream } from "@/hooks/useExecutionStream";
 import { ExecutionStreamProvider } from "@/components/ExecutionStreamProvider";
 type ExecutionLog = {
   executionId: string;
-  stepIndex: number;
-  stepType: string;
-  phase: "start" | "data" | "end" | "error";
-  title: string;
+  stepIndex?: number;
+  stepType?: string;
+  phase?: "step_started" | "info" | "data" | "success" | "step_finished" | "error" | "execution_failed" | "execution_finished";
+  title?: string;
   data?: any;
   durationMs?: number;
   timestamp: number;
 };
 
 interface WorkflowPageProps {
-  autoGeneratePrompt?: string;
-  workflowId?: string;
-  ownerId?: string;
+  params?: any;
+  searchParams?: any;
 }
 
-export default function WorkflowPage(props: WorkflowPageProps = {}) {
-  const { 
-    autoGeneratePrompt, 
-    workflowId, 
-    ownerId = "user_default" 
-  } = props;
+export default function WorkflowPage(_props: WorkflowPageProps) {
+  // For client components, we don't use server props
+  // These would come from URL or state if needed
+  const autoGeneratePrompt: string | undefined = undefined;
+  const workflowId: string | undefined = undefined;
+  const ownerId: string = "user_default";
   const [graphMeta, setGraphMeta] = useState<any>(null);
   const dbSchemas = useSelector((state: RootState) => state.dbSchemas.schemas);
   const dispatch = useDispatch<RootDispatch>();
@@ -87,12 +86,13 @@ export default function WorkflowPage(props: WorkflowPageProps = {}) {
     workflowId: string;
     apiPath: string;
     apiName: string;
+    inputVariables?: any;
   } | null>(null);
   const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
 
   console.log("Rerendering WorkflowPage", savedWorkflowData);
   // STEP NUMBERS
-  const stepNumbers = calcStepNumbers(nodes, edges);
+  const stepNumbers = calcStepNumbers(nodes, edges) as Record<string, number>;
 
   const nodesWithSteps = nodes.map((n) => ({
     ...n,
@@ -473,7 +473,8 @@ export default function WorkflowPage(props: WorkflowPageProps = {}) {
             const inputVariables = extractInputVariables(reactNodes);
             
             // Generate API name from prompt
-            const apiName = autoGeneratePrompt
+            const promptText: string = autoGeneratePrompt ?? "workflow";
+            const apiName = promptText
               .toLowerCase()
               .replace(/[^a-z0-9\s]/g, "")
               .trim()
@@ -505,7 +506,7 @@ export default function WorkflowPage(props: WorkflowPageProps = {}) {
               if ((window as any).__addWorkflowToHistory) {
                 (window as any).__addWorkflowToHistory(
                   saveResult.workflowId,
-                  autoGeneratePrompt
+                  autoGeneratePrompt || "workflow"
                 );
               }
             }
@@ -583,14 +584,14 @@ export default function WorkflowPage(props: WorkflowPageProps = {}) {
         return;
       }
 
-      const reactNodes = ai.nodes.map((n, index) => ({
+      const reactNodes = ai.nodes.map((n: any, index: number) => ({
         id: n.id,
         type: n.type,
         position: { x: (index % 3) * 280, y: Math.floor(index / 3) * 180 },
         data: n.data,
       }));
 
-      const reactEdges = ai.edges.map((e) => ({
+      const reactEdges = ai.edges.map((e: any) => ({
         id: e.id,
         source: e.source,
         target: e.target,

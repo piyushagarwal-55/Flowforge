@@ -211,8 +211,8 @@ export function buildGraphMeta(
         // also expose all its nested fields
         if (pass === baseVar) {
           pOutputVars
-            .filter((v) => v.startsWith(baseVar + "."))
-            .forEach((v) => {
+            .filter((v: string) => v.startsWith(baseVar + "."))
+            .forEach((v: string) => {
               availableVars.push({
                 var: v,
                 fromNode: pNode.id,

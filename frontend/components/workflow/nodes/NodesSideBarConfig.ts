@@ -1,9 +1,9 @@
-import AuthMiddlewareNodeEditor from "@/components/NodesEditor/AuthMiddleWareNodeEditor";
-import DBDeleteNodeEditor from "@/components/NodesEditor/DBDeleteNodeEditor";
-import DBFindNodeEditor from "@/components/NodesEditor/DBFindNodeEditor";
-import DBInsertNodeEditor from "@/components/NodesEditor/DBInsertNodeEditor";
-import DBUpdateNodeEditor from "@/components/NodesEditor/DBUpdateNodeEditor";
-import InputNodeEditor from "@/components/NodesEditor/InputNodeEditor";
+import AuthMiddlewareNodeEditor from "@/components/Ui/AuthMiddlewareNodeEditor";
+import DBDeleteNodeEditor from "@/components/Ui/DBDeleteNodeEditor";
+import DBFindNodeEditor from "@/components/Ui/DBFindNodeEditor";
+import DBInsertNodeEditor from "@/components/Ui/DBInsertNodeEditor";
+import DBUpdateNodeEditor from "@/components/Ui/DBUpdateNodeEditor";
+import InputNodeEditor from "@/components/Ui/InputNodeEditor";
 import LoginNodeEditor from "@/components/Ui/LoginNodeEditor";
 
 export const editorMap: any = {

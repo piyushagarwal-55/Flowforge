@@ -345,11 +345,11 @@ export const useNodeConfigs = () => {
       outputVar: true,
       outputVarDefault: "foundData",
 
-      getOutputShape: (fields) => {
+      getOutputShape: (fields: any) => {
         const schema = findSchema(fields.collection, dbSchemas);
         if (!schema) return {};
 
-        return schema.reduce((acc, f) => {
+        return schema.reduce((acc: Record<string, any>, f: string) => {
           acc[f] = "any";
           return acc;
         }, {});
@@ -400,17 +400,17 @@ export const useNodeConfigs = () => {
       outputVar: true,
       outputVarDefault: "createdRecord",
 
-      getOutputShape: (fields) => {
+      getOutputShape: (fields: any) => {
         const c = fields.collection;
         if (!c || !dbSchemas[c]) return null;
 
-        return dbSchemas[c].reduce((acc, f) => {
+        return dbSchemas[c].reduce((acc: Record<string, any>, f: string) => {
           acc[f] = "any";
           return acc;
         }, {});
       },
 
-      render: ({ localFields, setField, availableVars }) => {
+      render: ({ localFields, setField, availableVars }: any) => {
         const collection = localFields.collection || "";
         const schemaFields = collection ? dbSchemas[collection] : [];
         const labeledVars = getLabeledVars(availableVars);
@@ -485,17 +485,17 @@ export const useNodeConfigs = () => {
       outputVar: true,
       outputVarDefault: "updatedRecord",
 
-      getOutputShape: (fields) => {
+      getOutputShape: (fields: any) => {
         const c = fields.collection;
         if (!c || !dbSchemas[c]) return null;
 
-        return dbSchemas[c].reduce((acc, f) => {
+        return dbSchemas[c].reduce((acc: Record<string, any>, f: string) => {
           acc[f] = "any";
           return acc;
         }, {});
       },
 
-      render: ({ localFields, setField, availableVars }) => {
+      render: ({ localFields, setField, availableVars }: any) => {
         const collection = localFields.collection || "";
         const schemaFields = collection ? dbSchemas[collection] : [];
         const labeledVars = getLabeledVars(availableVars);
@@ -547,7 +547,7 @@ export const useNodeConfigs = () => {
       outputVar: true,
       outputVarDefault: "deletedRecord",
 
-      render: ({ localFields, setField, availableVars }) => {
+      render: ({ localFields, setField, availableVars }: any) => {
         const collection = localFields.collection || "";
         const schemaFields = collection ? dbSchemas[collection] : [];
         const labeledVars = getLabeledVars(availableVars);
@@ -732,7 +732,7 @@ export const useNodeConfigs = () => {
         ok: "boolean",
       }),
 
-      render: ({ localFields, setField, availableVars }) => {
+      render: ({ localFields, setField, availableVars }: any) => {
         const rules = localFields.rules || [];
 
         const updateRule = (i: number, key: string, value: any) => {

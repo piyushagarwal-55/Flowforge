@@ -17,23 +17,23 @@ export function calcStepNumbers(nodes: any[], edges: any[]) {
   });
 
   // Queue for topo sort (start with nodes that have no incoming edges)
-  const queue = [];
+  const queue: string[] = [];
   indegree.forEach((count, id) => {
     if (count === 0) queue.push(id);
   });
 
-  const order = {};
+  const order: Record<string, number> = {};
   let step = 0;
 
   while (queue.length) {
-    const id = queue.shift();
+    const id = queue.shift()!;
     order[id] = step;
     step++;
 
     // Safety check: ensure node exists in graph
     const neighbors = graph.get(id);
     if (neighbors) {
-      neighbors.forEach((next) => {
+      neighbors.forEach((next: string) => {
         indegree.set(next, indegree.get(next) - 1);
         if (indegree.get(next) === 0) queue.push(next);
       });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useNodeConfigs } from "@/nodeConfigs";
+import { useNodeConfigs } from "@/components/workflow/build/nodeConfigs";
 import { BaseNodeEditor } from "../Ui/BaseNodeEditor";
 
 export default function EmailSendNodeEditor(props: any) {

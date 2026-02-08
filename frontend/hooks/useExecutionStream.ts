@@ -3,13 +3,13 @@
 import { useStreamGroup } from "@motiadev/stream-client-react";
 
 type ExecutionLog = {
-  id?: string;
-  _id: string;
+  id: string;
+  _id?: string;
   executionId: string;
   stepIndex?: number;
   stepType?: string;
-  phase: string;
-  title: string;
+  phase?: "step_started" | "info" | "data" | "success" | "step_finished" | "error" | "execution_failed" | "execution_finished";
+  title?: string;
   data?: any;
   durationMs?: number;
   timestamp: number;

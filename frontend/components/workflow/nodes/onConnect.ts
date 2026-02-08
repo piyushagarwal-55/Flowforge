@@ -36,8 +36,8 @@ export function handleOnConnect(
   const updatedEdges = [...edges, newEdge];
 
   const liveNodes = rfInstance.getNodes();
-  const source = liveNodes.find((n) => n.id === newEdge.source);
-  const target = liveNodes.find((n) => n.id === newEdge.target);
+  const source = liveNodes.find((n: any) => n.id === newEdge.source);
+  const target = liveNodes.find((n: any) => n.id === newEdge.target);
 
   const dbNode = [source, target].find((n: any) =>
     ["dbInsert", "dbFind", "dbUpdate", "dbDelete"].includes(n?.type)
@@ -48,7 +48,7 @@ export function handleOnConnect(
   // Auto-map to templates
   const connectedInputs = updatedEdges
     .filter((e) => e.target === dbNode.id)
-    .map((e) => liveNodes.find((n) => n.id === e.source))
+    .map((e) => liveNodes.find((n: any) => n.id === e.source))
     .filter((n) => n?.type === "input");
 
   const updatedNode = autoMapNode(dbNode, connectedInputs, dbSchemas);

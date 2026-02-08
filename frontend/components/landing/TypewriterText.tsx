@@ -79,7 +79,7 @@ export function TypewriterText({
       {showCursor && (
         <motion.span
           animate={{ opacity: [1, 0, 1] }}
-          transition={{ duration: 0.8, repeat: Infinity, ease: "steps(2)" }}
+          transition={{ duration: 0.8, repeat: Infinity, ease: "easeInOut" }}
           className={`inline-block ml-0.5 ${cursorClassName}`}
         >
           |

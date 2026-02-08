@@ -239,11 +239,7 @@ function OrchetrixWorkspace() {
             <div className="flex-1 relative overflow-hidden">
               {mountedComponents.has("WorkflowGraph") && (
                 <div className="absolute inset-0">
-                  <WorkflowGraph
-                    autoGeneratePrompt={intent?.workflowPrompt}
-                    workflowId={activeWorkflowId}
-                    ownerId="user_default"
-                  />
+                  <WorkflowGraph />
                 </div>
               )}
 

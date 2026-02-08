@@ -55,11 +55,12 @@ interface WorkflowPageProps {
   ownerId?: string;
 }
 
-export default function WorkflowPage({ 
-  autoGeneratePrompt, 
-  workflowId, 
-  ownerId = "user_default" 
-}: WorkflowPageProps = {}) {
+export default function WorkflowPage(props: WorkflowPageProps = {}) {
+  const { 
+    autoGeneratePrompt, 
+    workflowId, 
+    ownerId = "user_default" 
+  } = props;
   const [graphMeta, setGraphMeta] = useState<any>(null);
   const dbSchemas = useSelector((state: RootState) => state.dbSchemas.schemas);
   const dispatch = useDispatch<RootDispatch>();

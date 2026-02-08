@@ -2,9 +2,5 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": ".next",
-  "framework": "nextjs",
-  "env": {
-    "NEXT_PUBLIC_TAMBO_API_KEY": "@tambo_api_key",
-    "NEXT_PUBLIC_BACKEND_URL": "@backend_url"
-  }
+  "framework": "nextjs"
 }

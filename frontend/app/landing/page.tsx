@@ -3,6 +3,7 @@
 import { motion, useScroll, useTransform } from "framer-motion";
 import { ChevronDown, Zap, MessageSquare, GitBranch, BookOpen, ArrowRight, Sparkles, Play, Terminal, Layers, Shield, Code2, Workflow } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AmbientBackground } from "@/components/landing/AmbientBackground";
 import { SectionReveal, RevealItem } from "@/components/landing/SectionReveal";
 import { FloatingNodeCard } from "@/components/landing/FloatingNodeCard";
@@ -15,6 +16,7 @@ import { BuiltForProduction } from "@/components/landing/BuiltForProduction";
 import { COLORS, TYPOGRAPHY } from "@/internal/ui-map";
 
 export default function LandingPage() {
+  const router = useRouter();
   const { scrollYProgress } = useScroll();
   const heroOpacity = useTransform(scrollYProgress, [0, 0.15], [1, 0]);
   const heroScale = useTransform(scrollYProgress, [0, 0.15], [1, 0.95]);
@@ -90,16 +92,15 @@ export default function LandingPage() {
                 transition={{ duration: 0.8, delay: 0.5 }}
                 className="flex items-center justify-center lg:justify-start gap-4 flex-wrap"
               >
-                <Link href="/">
-                  <motion.button
-                    whileHover={{ scale: 1.03, boxShadow: "0 0 60px rgba(255,255,255,0.2)" }}
-                    whileTap={{ scale: 0.97 }}
-                    className="group px-8 py-4 rounded-2xl bg-white text-black text-base font-semibold transition-all shadow-[0_0_40px_rgba(255,255,255,0.1)] flex items-center gap-3"
-                  >
-                    Start Building
-                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                  </motion.button>
-                </Link>
+                <motion.button
+                  whileHover={{ scale: 1.03, boxShadow: "0 0 60px rgba(255,255,255,0.2)" }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => router.push("/")}
+                  className="group px-8 py-4 rounded-2xl bg-white text-black text-base font-semibold transition-all shadow-[0_0_40px_rgba(255,255,255,0.1)] flex items-center gap-3"
+                >
+                  Start Building
+                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                </motion.button>
 
                 <motion.button
                   whileHover={{ scale: 1.03, backgroundColor: "rgba(255,255,255,0.06)" }}
@@ -358,16 +359,15 @@ export default function LandingPage() {
             </p>
 
             <div className="flex items-center justify-center gap-4 flex-wrap">
-              <Link href="/">
-                <motion.button
-                  whileHover={{ scale: 1.05, boxShadow: "0 0 80px rgba(255,255,255,0.25)" }}
-                  whileTap={{ scale: 0.95 }}
-                  className="group px-10 py-5 rounded-2xl bg-white text-black text-lg font-semibold transition-all shadow-[0_0_50px_rgba(255,255,255,0.15)] flex items-center gap-3"
-                >
-                  Get Started Free
-                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                </motion.button>
-              </Link>
+              <motion.button
+                whileHover={{ scale: 1.05, boxShadow: "0 0 80px rgba(255,255,255,0.25)" }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => router.push("/")}
+                className="group px-10 py-5 rounded-2xl bg-white text-black text-lg font-semibold transition-all shadow-[0_0_50px_rgba(255,255,255,0.15)] flex items-center gap-3"
+              >
+                Get Started Free
+                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+              </motion.button>
 
               <Link href="https://github.com" target="_blank">
                 <motion.button

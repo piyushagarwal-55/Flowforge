@@ -1,0 +1,47 @@
+.section {
+  position: relative;
+  background: #0a0a0a;
+}
+
+/* Top fade gradient */
+.section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 20vh;
+  background: linear-gradient(to bottom, #0a0a0a 0%, transparent 100%);
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* Bottom fade gradient */
+.section::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20vh;
+  background: linear-gradient(to top, #0a0a0a 0%, transparent 100%);
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* Orb items */
+.orbItem {
+  will-change: width, height;
+  transition: width 0.1s ease-out, height 0.1s ease-out;
+}
+
+/* Hashed pattern - emerald theme matching FlowForge */
+.hashed {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(16, 185, 129, 0.08) 0px,
+    rgba(16, 185, 129, 0.08) 1px,
+    transparent 1px,
+    transparent 10px
+  );
+}

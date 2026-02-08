@@ -1,0 +1,15 @@
+# Deployment documentation (contains sensitive info)
+DEPLOYMENT-*.md
+PRODUCTION-READY.md
+START-HERE.md
+VERCEL-FIX.md
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db

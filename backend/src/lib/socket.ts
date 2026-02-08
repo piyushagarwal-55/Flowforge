@@ -5,7 +5,8 @@ let io: Server | null = null;
 export function initSocket(server: any) {
   io = new Server(server, {
     cors: {
-      origin: "*",
+      origin: process.env.FRONTEND_URL || "https://your-frontend-domain.vercel.app",
+      credentials: true,
     },
   });
 

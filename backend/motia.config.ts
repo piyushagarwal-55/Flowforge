@@ -12,6 +12,7 @@ export default defineConfig({
   plugins: [observabilityPlugin, statesPlugin, endpointPlugin, logsPlugin, bullmqPlugin],
   server: {
     port,
+    host: '0.0.0.0', // Railway requires binding to all interfaces
     ...(isProd ? {
       hmr: false,
       workbench: false,

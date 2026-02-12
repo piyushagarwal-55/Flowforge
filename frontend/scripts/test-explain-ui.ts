@@ -10,7 +10,7 @@
  * 4. Validate UI elements
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
 const FRONTEND_URL = "http://localhost:5000";
 
 async function checkBackend(): Promise<boolean> {

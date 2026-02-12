@@ -37,6 +37,7 @@ import { useDispatch, useSelector } from "react-redux";
 import AnimatedDashedEdge from "@/components/Ui/AnimatedDashedEdge";
 import { fetchDbSchemas } from "@/store/dbSchemasSlice";
 import { useExecutionStream } from "@/hooks/useExecutionStream";
+import { useSocketExecutionLogs } from "@/hooks/useSocketExecutionLogs";
 import { ExecutionStreamProvider } from "@/components/ExecutionStreamProvider";
 type ExecutionLog = {
   executionId: string;
@@ -52,13 +53,14 @@ type ExecutionLog = {
 interface WorkflowPageProps {
   params?: any;
   searchParams?: any;
+  workflowId?: string;
 }
 
-export default function WorkflowPage(_props: WorkflowPageProps) {
+export default function WorkflowPage(props: WorkflowPageProps) {
   // For client components, we don't use server props
   // These would come from URL or state if needed
   const autoGeneratePrompt: string | undefined = undefined;
-  const workflowId: string | undefined = undefined;
+  const workflowId: string | undefined = props.workflowId;
   const ownerId: string = "user_default";
   const [graphMeta, setGraphMeta] = useState<any>(null);
   const dbSchemas = useSelector((state: RootState) => state.dbSchemas.schemas);
@@ -79,6 +81,9 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
     logs: ExecutionLog[];
     finished: boolean;
   } | null>(null);
+  
+  // Socket.io connection for execution logs
+  const { logs: socketLogs, isConnected } = useSocketExecutionLogs(execution?.executionId || null);
   // Modal state
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -118,7 +123,7 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
       (async () => {
         try {
           const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/workflows/${workflowId}?ownerId=${ownerId}`
+            `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"}/workflows/${workflowId}?ownerId=${ownerId}`
           );
 
           console.log(`[WorkflowPage] 📡 Fetch response`, {
@@ -224,7 +229,7 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
         });
 
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/workflows/${workflowId}?ownerId=${ownerId}`
+          `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"}/workflows/${workflowId}?ownerId=${ownerId}`
         );
 
         if (!response.ok) {
@@ -411,7 +416,7 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
     (async () => {
       setIsGenerating(true);
       try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/workflow/generate`, {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"}/ai/generate-workflow`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
@@ -482,7 +487,7 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
               .slice(0, 4)
               .join("-");
 
-            const saveRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/workflows/save`, {
+            const saveRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"}/workflows`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -571,7 +576,7 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
     setIsGenerating(true);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/workflow/generate`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"}/ai/generate-workflow`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
@@ -659,7 +664,7 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
       const payload = buildForSave(nodes, edges);
       const inputVariables = extractInputVariables(nodes);
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/workflows/save`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"}/workflows`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -707,10 +712,16 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
 
     const payload = buildForExecute(nodes, edges);
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/workflow/execute`, {
+    // Transform payload to match backend-core API
+    const backendPayload = {
+      steps: payload.steps,
+      input: payload.vars?.input || {},
+    };
+
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"}/workflows/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(backendPayload),
     });
 
     const output = await res.json();
@@ -907,8 +918,8 @@ export default function WorkflowPage(_props: WorkflowPageProps) {
       <ExecutionLogsSidebar
         isOpen={logsOpen}
         onClose={() => setLogsOpen(false)}
-        logs={execution?.logs || []}
-        isPolling={execution ? !execution.finished : false}
+        logs={socketLogs}
+        isPolling={isConnected && socketLogs.length > 0 && !socketLogs.some(l => l.phase === 'execution_finished' || l.phase === 'execution_failed')}
         executionId={execution?.executionId || null}
       />
 

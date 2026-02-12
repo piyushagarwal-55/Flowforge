@@ -104,7 +104,7 @@ export function BackendExplainer({ workflowId, ownerId = "user_default", onBack 
       setError(null);
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/workflow/explain`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"}/ai/explain-workflow`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

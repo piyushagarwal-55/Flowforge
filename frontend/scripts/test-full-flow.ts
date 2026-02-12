@@ -13,7 +13,7 @@
 
 import { v4 as uuidv4 } from "uuid";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
 
 interface IntentResponse {
   workflowPrompt?: string;

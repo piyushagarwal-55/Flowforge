@@ -26,7 +26,7 @@ declare module 'motia' {
     'ExecutionLogs': ApiRouteHandler<Record<string, unknown>, unknown, never>
     'executeWorkflow': ApiRouteHandler<Record<string, unknown>, unknown, { topic: 'workflow.start'; data: never }>
     'emailSend': EventHandler<never, { topic: 'workflow.run'; data: never }>
-    'delay': EventHandler<never, never>
+    'delay': EventHandler<never, { topic: 'workflow.run'; data: never }>
     'dbUpdate': EventHandler<never, { topic: 'workflow.run'; data: never }>
     'dbInsert': EventHandler<never, { topic: 'workflow.run'; data: never }>
     'dbFind': EventHandler<never, { topic: 'workflow.run'; data: never }>

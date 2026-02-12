@@ -122,11 +122,12 @@ function OrchetrixWorkspace() {
     console.log(`[OrchetrixWorkspace] ✅ Returned to workflow canvas`);
   };
 
-  const handleIntentReceived = (newIntent: IntentResponse) => {
+  const handleIntentReceived = async (newIntent: IntentResponse) => {
     console.log(`[OrchetrixWorkspace] 🎯 Intent received`, {
       correlationId: newIntent.correlationId,
       components: newIntent.components,
       workflowPrompt: newIntent.workflowPrompt,
+      workflowId: newIntent.workflowId,
     });
 
     setIntent(newIntent);
@@ -148,6 +149,52 @@ function OrchetrixWorkspace() {
       correlationId: newIntent.correlationId,
       components: Array.from(componentsSet),
     });
+
+    // ✅ AUTO-TRIGGER: If workflowPrompt exists, automatically generate the workflow
+    if (newIntent.workflowPrompt && newIntent.workflowId && componentsSet.has('WorkflowGraph')) {
+      console.log(`[OrchetrixWorkspace] 🤖 Auto-triggering workflow generation`, {
+        correlationId: newIntent.correlationId,
+        workflowId: newIntent.workflowId,
+        prompt: newIntent.workflowPrompt.substring(0, 100),
+      });
+
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/ai/generate-workflow`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt: newIntent.workflowPrompt,
+              workflowId: newIntent.workflowId,
+              ownerId: 'user_default',
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`[OrchetrixWorkspace] ✅ Workflow generated automatically`, {
+            correlationId: newIntent.correlationId,
+            workflowId: newIntent.workflowId,
+            nodeCount: data.nodes?.length || 0,
+          });
+          // The polling mechanism in WorkflowPage will pick up the changes
+        } else {
+          const errorData = await response.json();
+          console.error(`[OrchetrixWorkspace] ❌ Auto-generation failed`, {
+            correlationId: newIntent.correlationId,
+            status: response.status,
+            error: errorData,
+          });
+        }
+      } catch (error) {
+        console.error(`[OrchetrixWorkspace] ❌ Auto-generation error`, {
+          correlationId: newIntent.correlationId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   };
 
   useEffect(() => {
@@ -239,7 +286,7 @@ function OrchetrixWorkspace() {
             <div className="flex-1 relative overflow-hidden">
               {mountedComponents.has("WorkflowGraph") && (
                 <div className="absolute inset-0">
-                  <WorkflowGraph />
+                  <WorkflowGraph workflowId={activeWorkflowId} />
                 </div>
               )}
 

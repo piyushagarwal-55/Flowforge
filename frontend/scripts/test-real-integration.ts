@@ -12,7 +12,7 @@
 
 import { v4 as uuidv4 } from "uuid";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
 
 interface IntentResponse {
   workflowPrompt?: string;
@@ -61,7 +61,7 @@ async function testRealWorkflowGeneration(prompt: string): Promise<boolean> {
       console.log(`\n🤖 Step 2: Generating workflow with Groq...`);
       console.log(`   Using prompt: "${intent.workflowPrompt}"`);
 
-      const workflowResponse = await fetch(`${BACKEND_URL}/workflow/generate`, {
+      const workflowResponse = await fetch(`${BACKEND_URL}/ai/generate-workflow`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: intent.workflowPrompt }),
@@ -271,7 +271,7 @@ async function checkPrerequisites(): Promise<boolean> {
 
   // Check workflow generation endpoint
   try {
-    const response = await fetch(`${BACKEND_URL}/workflow/generate`, {
+    const response = await fetch(`${BACKEND_URL}/ai/generate-workflow`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt: "test" }),

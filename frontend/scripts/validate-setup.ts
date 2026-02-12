@@ -65,7 +65,7 @@ function checkEnvVars(): boolean {
 async function checkBackend(): Promise<boolean> {
   console.log(`\n🌐 Checking backend connectivity...`);
   
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
   
   try {
     const response = await fetch(`${backendUrl}/hello`, {
@@ -89,7 +89,7 @@ async function checkBackend(): Promise<boolean> {
 async function checkIntentEndpoint(): Promise<boolean> {
   console.log(`\n🎯 Checking /ai/intent endpoint...`);
   
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
   
   try {
     const response = await fetch(`${backendUrl}/ai/intent`, {

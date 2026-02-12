@@ -32,7 +32,7 @@ export const fetchDbSchemas = createAsyncThunk<
   { rejectValue: string }
 >("dbSchemas/fetch", async (_, { rejectWithValue }) => {
   try {
-    const res = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/db/schemas`);
+    const res = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"}/db/schemas`);
 
     if (!res.data?.schemas) {
       return rejectWithValue("Invalid schema response");

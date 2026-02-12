@@ -6,13 +6,13 @@
  * Verifies that all required API keys are properly configured
  */
 
-const CHECK_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+const CHECK_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
 
 async function checkGroqKey(): Promise<boolean> {
   console.log(`\n🔍 Checking Groq API Key...`);
 
   try {
-    const response = await fetch(`${CHECK_BACKEND_URL}/workflow/generate`, {
+    const response = await fetch(`${CHECK_BACKEND_URL}/ai/generate-workflow`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt: "test api key" }),

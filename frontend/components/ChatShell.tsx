@@ -91,7 +91,7 @@ export function ChatShell({ onIntentReceived, workflowId, onWorkflowIdChange, co
       });
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}/ai/intent`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"}/ai/intent`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -13,11 +13,14 @@ import { logger } from '../utils/logger';
 import { generateMCPServer, mutateMCPServer } from '../mcp/server.generator';
 import { runtimeManager } from '../mcp/runtime.manager';
 import { registerBuiltInTools } from '../mcp/tool.registry';
+import { supervisorAgent } from '../agents/supervisor.agent';
+import { SocketServer } from '../socket';
 
 // Register built-in MCP tools on startup
 registerBuiltInTools();
 
-const router = Router();
+export function initAIRoutes(socketServer: SocketServer) {
+  const router = Router();
 
 /**
  * POST /ai/intent
@@ -262,16 +265,18 @@ router.post('/intent', async (req: Request, res: Response, next: NextFunction) =
  * POST /ai/generate-mcp-server
  * Generate MCP server from natural language prompt
  * This is the new MCP-first endpoint
+ * NOW ROUTES THROUGH SUPERVISORAGENT
  */
 router.post('/generate-mcp-server', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { prompt, ownerId, correlationId } = req.body;
+    const finalOwnerId = ownerId || 'user_default';
     const finalCorrelationId = correlationId || `mcp-${Date.now()}`;
 
     logger.info('[generateMCPServer] 📥 Request received', {
       correlationId: finalCorrelationId,
       prompt: prompt?.slice(0, 100),
-      ownerId,
+      ownerId: finalOwnerId,
     });
 
     if (!prompt) {
@@ -281,8 +286,14 @@ router.post('/generate-mcp-server', async (req: Request, res: Response, next: Ne
       return;
     }
 
-    // Generate MCP server
-    const mcpServer = await generateMCPServer(prompt, ownerId, finalCorrelationId);
+    // Route through SupervisorAgent
+    const { task, result: mcpServer, supervisorLogs } = await supervisorAgent.handleUserIntent({
+      prompt,
+      ownerId: finalOwnerId,
+      correlationId: finalCorrelationId,
+      socketServer,
+      executionId: finalCorrelationId,
+    });
 
     // Save to database
     await MCPServer.create({
@@ -293,16 +304,14 @@ router.post('/generate-mcp-server', async (req: Request, res: Response, next: Ne
       resources: mcpServer.resources,
       agents: mcpServer.agents,
       permissions: mcpServer.permissions,
-      executionOrder: mcpServer.executionOrder, // ADD THIS!
+      executionOrder: mcpServer.executionOrder,
       status: mcpServer.status,
       ownerId: mcpServer.ownerId,
     });
 
-    // Create runtime
-    runtimeManager.createRuntime(mcpServer);
-
-    logger.info('[generateMCPServer] ✅ MCP server created', {
+    logger.info('[generateMCPServer] ✅ MCP server created via SupervisorAgent', {
       correlationId: finalCorrelationId,
+      taskId: task.taskId,
       serverId: mcpServer.serverId,
       toolCount: mcpServer.tools.length,
     });
@@ -346,6 +355,8 @@ router.post('/generate-mcp-server', async (req: Request, res: Response, next: Ne
         generatedAt: mcpServer.createdAt.toISOString(),
         prompt: prompt.slice(0, 200),
         correlationId: finalCorrelationId,
+        taskId: task.taskId,
+        supervisorLogs, // Include supervisor logs for frontend
       },
     });
   } catch (error) {
@@ -627,6 +638,7 @@ ${schemaPrompt}
 /**
  * POST /ai/mutate-workflow
  * Mutate existing workflow based on prompt
+ * THIN WRAPPER: Routes MCP server mutations through SupervisorAgent at the top
  */
 router.post('/mutate-workflow', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -646,6 +658,98 @@ router.post('/mutate-workflow', async (req: Request, res: Response, next: NextFu
       return;
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // SUPERVISORAGENT THIN WRAPPER - MCP SERVER MUTATIONS ONLY
+    // ═══════════════════════════════════════════════════════════════
+    // Check if this is an MCP server mutation (workflowId contains mcp_workflow pattern)
+    const serverIdMatch = workflowId.match(/mcp_workflow_(mcp_\d+_[a-f0-9]+)_\d+/);
+    
+    if (serverIdMatch) {
+      const serverId = serverIdMatch[1];
+      const mcpServer = await MCPServer.findOne({ serverId, ownerId });
+      
+      if (mcpServer) {
+        logger.info('[workflowMutation] 🔄 Routing MCP server mutation through SupervisorAgent', {
+          correlationId: finalCorrelationId,
+          serverId,
+          workflowId,
+        });
+
+        // Route through SupervisorAgent - it calls existing mutateMCPServer()
+        const { task, result: mutatedServer, supervisorLogs } = await supervisorAgent.handleUserIntent({
+          prompt,
+          workflowId,
+          ownerId,
+          correlationId: finalCorrelationId,
+          socketServer,
+          executionId: workflowId,
+        });
+
+        logger.info('[workflowMutation] ✅ MCP server mutated via SupervisorAgent', {
+          correlationId: finalCorrelationId,
+          taskId: task.taskId,
+          serverId: mutatedServer.serverId,
+          toolCount: mutatedServer.tools.length,
+        });
+
+        // Convert MCP server tools to workflow nodes for frontend compatibility
+        const updatedNodes = mutatedServer.tools.map((tool: any, index: number) => ({
+          id: `${tool.toolId}-${index}`,
+          type: tool.toolId,
+          data: {
+            label: tool.name,
+            fields: tool.inputSchema,
+            description: tool.description,
+            toolId: tool.toolId,
+            inputSchema: tool.inputSchema,
+            outputSchema: tool.outputSchema,
+          },
+        }));
+
+        const updatedEdges = updatedNodes.slice(0, -1).map((node: any, index: number) => ({
+          id: `edge-${index}`,
+          source: node.id,
+          target: updatedNodes[index + 1].id,
+        }));
+
+        // Update workflow document for frontend compatibility
+        await Workflow.findOneAndUpdate(
+          { workflowId, ownerId },
+          {
+            workflowId,
+            ownerId,
+            apiName: mutatedServer.name,
+            apiPath: `/workflow/run/${workflowId}`,
+            steps: updatedNodes,
+            edges: updatedEdges,
+            inputVariables: [],
+          },
+          { upsert: true }
+        );
+
+        res.status(200).json({
+          workflowId,
+          nodes: updatedNodes,
+          edges: updatedEdges,
+          diff: {
+            nodesAdded: 0,
+            nodeCountBefore: 0,
+            nodeCountAfter: updatedNodes.length,
+            newNodeIds: [],
+          },
+          reasoning: 'MCP server mutated successfully',
+          correlationId: finalCorrelationId,
+          taskId: task.taskId,
+          supervisorLogs, // Include supervisor logs for frontend
+        });
+        return;
+      }
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // END SUPERVISORAGENT WRAPPER
+    // ═══════════════════════════════════════════════════════════════
+
+    // LEGACY WORKFLOW MUTATION - Keep ALL existing logic below unchanged
     // Load existing workflow from database
     const workflowDoc = await Workflow.findOne({ workflowId, ownerId });
 
@@ -1012,9 +1116,9 @@ Available node types: ${nodeCatalog.map((n) => n.type).join(', ')}
     // ALSO update the MCP server directly so changes persist on reload
     // Extract serverId from workflowId (format: mcp_workflow_{serverId}_{timestamp})
     // serverId format: mcp_{timestamp}_{hash}
-    const serverIdMatch = workflowId.match(/mcp_workflow_(mcp_\d+_[a-f0-9]+)_\d+/);
-    if (serverIdMatch) {
-      const serverId = serverIdMatch[1];
+    const serverIdMatchLegacy = workflowId.match(/mcp_workflow_(mcp_\d+_[a-f0-9]+)_\d+/);
+    if (serverIdMatchLegacy) {
+      const serverId = serverIdMatchLegacy[1];
       
       logger.info('[workflowMutation] 📝 Updating MCP server', {
         correlationId: finalCorrelationId,
@@ -1265,4 +1369,7 @@ router.post('/explain-workflow', async (req: Request, res: Response, next: NextF
   }
 });
 
-export default router;
+  return router;
+}
+
+export default initAIRoutes;

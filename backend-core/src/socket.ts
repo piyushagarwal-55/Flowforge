@@ -1,17 +1,18 @@
 import { Server } from "socket.io";
 import http from "http";
 import { logger } from "./utils/logger";
+import ExecutionLog from "./models/executionLog.model";
 
 let io: Server | null = null;
 
 export interface SocketServer {
   io: Server;
-  emitExecutionLog(executionId: string, logData: ExecutionLogData): void;
+  emitExecutionLog(executionId: string, logData: ExecutionLogData): Promise<void>;
   emitToRoom(room: string, event: string, data: any): void;
 }
 
 export interface ExecutionLogData {
-  type: 'step_start' | 'step_complete' | 'step_error' | 'workflow_complete';
+  type: 'step_start' | 'step_complete' | 'step_error' | 'workflow_complete' | 'agent_activity' | 'tool_start' | 'tool_complete' | 'tool_error' | 'permission_denied';
   stepIndex?: number;
   stepType?: string;
   stepName?: string;
@@ -21,6 +22,9 @@ export interface ExecutionLogData {
   output?: any;
   input?: any;
   durationMs?: number;
+  serverId?: string;
+  workflowId?: string;
+  ownerId?: string;
 }
 
 /**
@@ -94,7 +98,7 @@ export function initSocket(httpServer: http.Server): SocketServer {
   // Return SocketServer interface
   return {
     io,
-    emitExecutionLog: (executionId: string, logData: ExecutionLogData) => {
+    emitExecutionLog: async (executionId: string, logData: ExecutionLogData) => {
       if (!io) {
         logger.error("Socket.io not initialized");
         return;
@@ -108,6 +112,29 @@ export function initSocket(httpServer: http.Server): SocketServer {
         type: logData.type,
         stepIndex: logData.stepIndex,
       });
+
+      // Persist log to database for historical retrieval
+      try {
+        await ExecutionLog.create({
+          executionId,
+          serverId: logData.serverId,
+          workflowId: logData.workflowId,
+          ownerId: logData.ownerId || 'user_default',
+          type: logData.stepType === 'agent' ? 'agent_activity' : logData.type,
+          stepType: logData.stepType,
+          stepName: logData.stepName,
+          stepIndex: logData.stepIndex,
+          message: logData.data?.message || logData.stepName,
+          data: logData.data,
+          error: logData.error,
+          timestamp: new Date(logData.timestamp),
+        });
+      } catch (dbError) {
+        logger.error("Failed to persist execution log", {
+          executionId,
+          error: (dbError as Error).message,
+        });
+      }
     },
     emitToRoom: (room: string, event: string, data: any) => {
       if (!io) {

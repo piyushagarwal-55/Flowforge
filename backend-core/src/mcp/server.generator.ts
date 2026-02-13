@@ -246,9 +246,12 @@ function extractResources(nodes: WorkflowNode[]): MCPResource[] {
 export async function generateMCPServer(
   prompt: string,
   ownerId?: string,
-  correlationId?: string
+  correlationId?: string,
+  socketServer?: any,
+  executionId?: string
 ): Promise<MCPServer> {
   const finalCorrelationId = correlationId || `mcp-gen-${Date.now()}`;
+  const finalExecutionId = executionId || finalCorrelationId;
 
   logger.info("[generateMCPServer] Starting MCP server generation", {
     correlationId: finalCorrelationId,
@@ -442,9 +445,12 @@ function capitalize(str: string): string {
 export async function mutateMCPServer(
   existingServer: MCPServer,
   prompt: string,
-  correlationId?: string
+  correlationId?: string,
+  socketServer?: any,
+  executionId?: string
 ): Promise<MCPServer> {
   const finalCorrelationId = correlationId || `mcp-mut-${Date.now()}`;
+  const finalExecutionId = executionId || finalCorrelationId;
 
   logger.info("[mutateMCPServer] Starting MCP server mutation", {
     correlationId: finalCorrelationId,
@@ -515,10 +521,65 @@ Return ONLY new nodes to ADD.
   const newResources = extractResources(mutation.addedNodes || []);
 
   // Merge with existing server
+  let allTools = [...existingServer.tools, ...newTools];
+
+  // ═══════════════════════════════════════════════════════════════
+  // DUPLICATE RESPONSE PRUNING: Keep only ONE response tool
+  // ═══════════════════════════════════════════════════════════════
+  const responseTools = allTools.filter(t => 
+    t.toolId === 'response' || t.toolId.startsWith('response')
+  );
+  
+  if (responseTools.length > 1) {
+    // Multiple response tools found - keep only the first one
+    const firstResponseTool = responseTools[0];
+    
+    // Remove all response tools
+    allTools = allTools.filter(t => 
+      t.toolId !== 'response' && !t.toolId.startsWith('response')
+    );
+    
+    // Add back only the first one
+    allTools.push(firstResponseTool);
+    
+    logger.info("[mutateMCPServer] Duplicate response tools pruned", {
+      correlationId: finalCorrelationId,
+      duplicatesRemoved: responseTools.length - 1,
+      keptTool: firstResponseTool.toolId,
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // RESPONSE NODE NORMALIZATION: Ensure response tool is always last
+  // ═══════════════════════════════════════════════════════════════
+  const responseToolIndex = allTools.findIndex(t => 
+    t.toolId === 'response' || t.toolId.startsWith('response')
+  );
+  
+  if (responseToolIndex !== -1 && responseToolIndex !== allTools.length - 1) {
+    // Response tool exists but is not last - move it to the end
+    const responseTool = allTools[responseToolIndex];
+    allTools = [
+      ...allTools.slice(0, responseToolIndex),
+      ...allTools.slice(responseToolIndex + 1),
+      responseTool
+    ];
+    
+    logger.info("[mutateMCPServer] Response tool moved to end", {
+      correlationId: finalCorrelationId,
+      fromIndex: responseToolIndex,
+      toIndex: allTools.length - 1,
+    });
+  }
+
+  // Update execution order to match tool order
+  const executionOrder = allTools.map(t => t.toolId);
+
   const mutatedServer: MCPServer = {
     ...existingServer,
-    tools: [...existingServer.tools, ...newTools],
+    tools: allTools,
     resources: [...existingServer.resources, ...newResources],
+    executionOrder, // Ensure execution order matches normalized tool order
     updatedAt: new Date(),
   };
 
@@ -528,6 +589,7 @@ Return ONLY new nodes to ADD.
     toolCountBefore: existingServer.tools.length,
     toolCountAfter: mutatedServer.tools.length,
     toolsAdded: newTools.length,
+    responseToolLast: mutatedServer.tools[mutatedServer.tools.length - 1]?.toolId === 'response',
   });
 
   return mutatedServer;

@@ -889,5 +889,63 @@ router.post('/api/:serverId', async (req: Request, res: Response, next: NextFunc
   }
 });
 
+/**
+ * GET /mcp/servers/:serverId/logs
+ * Get execution logs for a specific MCP server
+ */
+router.get('/servers/:serverId/logs', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { serverId } = req.params;
+    const { ownerId, limit = '100' } = req.query;
+
+    if (!ownerId) {
+      res.status(400).json({ error: 'ownerId required' });
+      return;
+    }
+
+    logger.info('[mcpLogs] Fetching logs', {
+      serverId,
+      ownerId,
+      limit,
+    });
+
+    // Import ExecutionLog model
+    const ExecutionLog = (await import('../models/executionLog.model')).default;
+
+    // Fetch logs for this server
+    const logs = await ExecutionLog.find({ 
+      serverId, 
+      ownerId: ownerId as string 
+    })
+      .sort({ timestamp: -1 })
+      .limit(parseInt(limit as string, 10));
+
+    logger.info('[mcpLogs] Logs retrieved', {
+      serverId,
+      count: logs.length,
+    });
+
+    res.status(200).json({
+      serverId,
+      logs: logs.reverse().map(log => ({
+        id: log._id,
+        type: log.type,
+        stepType: log.stepType,
+        stepName: log.stepName,
+        message: log.message,
+        data: log.data,
+        error: log.error,
+        timestamp: log.timestamp,
+      })),
+    });
+  } catch (error) {
+    logger.error('[mcpLogs] Error fetching logs', {
+      error: (error as Error).message,
+      stack: (error as Error).stack,
+    });
+    next(error);
+  }
+});
+
   return router;
 }

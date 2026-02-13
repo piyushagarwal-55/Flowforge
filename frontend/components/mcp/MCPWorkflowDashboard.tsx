@@ -18,6 +18,7 @@ import {
   Edge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { io, Socket } from 'socket.io-client';
 import NodeEditorModal from '@/components/Ui/NodesSidebar';
 import { MCPToolNode } from '@/components/nodes/MCPToolNode';
 import AnimatedDashedEdge from '@/components/Ui/AnimatedDashedEdge';
@@ -76,8 +77,10 @@ export default function MCPWorkflowDashboard({
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [runtimeStatus, setRuntimeStatus] = useState<'running' | 'stopped' | 'not_loaded'>('not_loaded');
   const [isTogglingRuntime, setIsTogglingRuntime] = useState(false);
+  const [socket, setSocket] = useState<Socket | null>(null);
   
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
 
   const addLog = (type: LogEntry['type'], message: string, details?: any) => {
     const newLog: LogEntry = {
@@ -95,7 +98,90 @@ export default function MCPWorkflowDashboard({
     loadExecutionCount();
     loadExistingWorkflow();
     fetchRuntimeStatus();
+    fetchHistoricalLogs();
+
+    // Setup socket.io connection for execution logs
+    const newSocket = io(socketUrl);
+    setSocket(newSocket);
+
+    newSocket.on('connect', () => {
+      console.log('[MCPWorkflow] Socket connected, joining room:', serverId);
+      newSocket.emit('join-execution', serverId);
+    });
+
+    // Listen for execution-log events
+    newSocket.on('execution-log', (logData: any) => {
+      console.log('[MCPWorkflow] Received execution-log:', logData);
+      
+      // Map execution-log types to LogEntry types
+      let logType: LogEntry['type'] = 'info';
+      let message = logData.data?.message || logData.stepName || 'Execution event';
+      
+      if (logData.type === 'step_complete' || logData.type === 'tool_complete' || logData.type === 'workflow_complete') {
+        logType = 'success';
+      } else if (logData.type === 'step_error' || logData.type === 'tool_error') {
+        logType = 'error';
+      } else if (logData.stepType === 'agent' || logData.type === 'agent_activity') {
+        logType = 'execution';
+      } else if (logData.type === 'tool_start' || logData.type === 'step_start') {
+        logType = 'info';
+      }
+      
+      addLog(logType, message, logData);
+    });
+
+    newSocket.on('disconnect', () => {
+      console.log('[MCPWorkflow] Socket disconnected');
+    });
+
+    return () => {
+      newSocket.emit('leave-execution', serverId);
+      newSocket.close();
+    };
   }, [serverId]);
+
+  const fetchHistoricalLogs = async () => {
+    try {
+      console.log('[MCPWorkflow] Fetching historical logs for:', serverId);
+      
+      const response = await fetch(
+        `${apiUrl}/mcp/servers/${serverId}/logs?ownerId=${ownerId}&limit=100`
+      );
+
+      if (!response.ok) {
+        console.warn('[MCPWorkflow] Failed to fetch historical logs');
+        return;
+      }
+
+      const data = await response.json();
+      console.log('[MCPWorkflow] Historical logs loaded:', data.logs.length);
+
+      // Convert historical logs to LogEntry format
+      const historicalLogs: LogEntry[] = data.logs.map((log: any) => {
+        let logType: LogEntry['type'] = 'info';
+        
+        if (log.type === 'step_complete' || log.type === 'tool_complete' || log.type === 'workflow_complete') {
+          logType = 'success';
+        } else if (log.type === 'step_error' || log.type === 'tool_error') {
+          logType = 'error';
+        } else if (log.stepType === 'agent' || log.type === 'agent_activity') {
+          logType = 'execution';
+        }
+
+        return {
+          id: log.id || `log-${Date.now()}-${Math.random()}`,
+          timestamp: new Date(log.timestamp).getTime(),
+          type: logType,
+          message: log.message || log.stepName || 'Execution event',
+          details: log.data,
+        };
+      });
+
+      setLogs(historicalLogs);
+    } catch (err) {
+      console.error('[MCPWorkflow] Error fetching historical logs:', err);
+    }
+  };
 
   const fetchRuntimeStatus = async () => {
     try {
@@ -506,6 +592,13 @@ export default function MCPWorkflowDashboard({
 
       const result = await response.json();
       console.log('[MCPWorkflow] Mutation result:', result);
+      
+      // Display supervisor logs if available
+      if (result.supervisorLogs && Array.isArray(result.supervisorLogs)) {
+        result.supervisorLogs.forEach((log: string) => {
+          addLog('info', log);
+        });
+      }
       
       if (result.nodes) {
         const nodesAdded = result.nodes.length - nodes.length;

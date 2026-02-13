@@ -11,7 +11,7 @@ import { errorMiddleware } from './middleware/error.middleware';
 import authRoutes from './routes/auth.routes';
 import workflowRoutes from './routes/workflow.routes';
 import { initExecutionRoutes } from './routes/execution.routes';
-import aiRoutes from './routes/ai.routes';
+import { initAIRoutes } from './routes/ai.routes';
 import collectionRoutes from './routes/collection.routes';
 import { initAgentRoutes } from './routes/agent.routes';
 import topologyRoutes from './routes/topology.routes';
@@ -57,7 +57,7 @@ async function startServer() {
     app.use('/auth', authRoutes);
     app.use('/workflows', workflowRoutes);
     app.use('/workflows', initExecutionRoutes(socketServer));
-    app.use('/ai', aiRoutes);
+    app.use('/ai', initAIRoutes(socketServer));
     app.use('/collections', collectionRoutes);
     app.use('/agents', initAgentRoutes(socketServer));
     app.use('/mcp/topology', topologyRoutes);

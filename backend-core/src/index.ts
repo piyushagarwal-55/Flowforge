@@ -15,6 +15,8 @@ import aiRoutes from './routes/ai.routes';
 import collectionRoutes from './routes/collection.routes';
 import { initAgentRoutes } from './routes/agent.routes';
 import topologyRoutes from './routes/topology.routes';
+import { initMCPRoutes } from './routes/mcp.routes';
+import mcpRoutes from './routes/mcp.routes';
 
 // Load environment variables
 dotenv.config();
@@ -59,6 +61,7 @@ async function startServer() {
     app.use('/collections', collectionRoutes);
     app.use('/agents', initAgentRoutes(socketServer));
     app.use('/mcp/topology', topologyRoutes);
+    app.use('/mcp', initMCPRoutes(socketServer));
     
     // Legacy route aliases for frontend compatibility
     app.use('/db/schemas', collectionRoutes); // Alias for /collections

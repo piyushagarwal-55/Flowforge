@@ -293,6 +293,7 @@ router.post('/generate-mcp-server', async (req: Request, res: Response, next: Ne
       resources: mcpServer.resources,
       agents: mcpServer.agents,
       permissions: mcpServer.permissions,
+      executionOrder: mcpServer.executionOrder, // ADD THIS!
       status: mcpServer.status,
       ownerId: mcpServer.ownerId,
     });
@@ -306,6 +307,31 @@ router.post('/generate-mcp-server', async (req: Request, res: Response, next: Ne
       toolCount: mcpServer.tools.length,
     });
 
+    // Generate API metadata (Tambo-style publishing)
+    const apiUrl = process.env.API_URL || 'http://localhost:4000';
+    const apiEndpoint = `${apiUrl}/mcp/api/${mcpServer.serverId}`;
+    
+    // Generate example curl command
+    const exampleInput = mcpServer.tools[0]?.inputSchema?.properties 
+      ? Object.keys(mcpServer.tools[0].inputSchema.properties).reduce((acc, key) => {
+          acc[key] = `<${key}>`;
+          return acc;
+        }, {} as Record<string, string>)
+      : { example: 'data' };
+    
+    const exampleCurl = `curl -X POST ${apiEndpoint} \\
+  -H "Content-Type: application/json" \\
+  -d '${JSON.stringify(exampleInput, null, 2)}'`;
+    
+    // Generate example frontend fetch
+    const exampleFetch = `fetch("${apiEndpoint}", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(${JSON.stringify(exampleInput, null, 2)})
+})
+  .then(res => res.json())
+  .then(data => console.log(data));`;
+
     res.status(200).json({
       serverId: mcpServer.serverId,
       name: mcpServer.name,
@@ -313,6 +339,9 @@ router.post('/generate-mcp-server', async (req: Request, res: Response, next: Ne
       tools: mcpServer.tools,
       resources: mcpServer.resources,
       status: mcpServer.status,
+      apiEndpoint,
+      exampleCurl,
+      exampleFetch,
       metadata: {
         generatedAt: mcpServer.createdAt.toISOString(),
         prompt: prompt.slice(0, 200),
@@ -617,23 +646,92 @@ router.post('/mutate-workflow', async (req: Request, res: Response, next: NextFu
       return;
     }
 
-    // Load existing workflow
+    // Load existing workflow from database
     const workflowDoc = await Workflow.findOne({ workflowId, ownerId });
 
     if (!workflowDoc) {
-      logger.error('[workflowMutation] ❌ Workflow not found', {
+      logger.warn('[workflowMutation] ⚠️ Workflow not found, creating from MCP server', {
         correlationId: finalCorrelationId,
         workflowId,
       });
-      res.status(404).json({
-        error: 'Workflow not found',
+
+      // Extract serverId from workflowId (format: mcp_workflow_{serverId}_{timestamp})
+      // serverId format: mcp_{timestamp}_{hash}
+      const serverIdMatch = workflowId.match(/mcp_workflow_(mcp_\d+_[a-f0-9]+)_\d+/);
+      if (!serverIdMatch) {
+        logger.error('[workflowMutation] ❌ Invalid workflowId format', {
+          correlationId: finalCorrelationId,
+          workflowId,
+        });
+        res.status(400).json({
+          error: 'Invalid workflowId format',
+        });
+        return;
+      }
+
+      const serverId = serverIdMatch[1];
+      logger.info('[workflowMutation] 📝 Extracted serverId', {
+        correlationId: finalCorrelationId,
+        workflowId,
+        serverId,
       });
-      return;
+      const mcpServer = await MCPServer.findOne({ serverId, ownerId });
+
+      if (!mcpServer) {
+        logger.error('[workflowMutation] ❌ MCP server not found', {
+          correlationId: finalCorrelationId,
+          serverId,
+        });
+        res.status(404).json({
+          error: 'MCP server not found',
+        });
+        return;
+      }
+
+      // Create workflow from MCP server tools
+      const initialNodes = mcpServer.tools.map((tool: any, index: number) => ({
+        id: `${tool.toolId}-${index}`,
+        type: tool.toolId,
+        data: {
+          label: tool.name,
+          fields: tool.inputSchema,
+          description: tool.description,
+          toolId: tool.toolId, // Ensure toolId is set
+          inputSchema: tool.inputSchema,
+          outputSchema: tool.outputSchema,
+        },
+      }));
+
+      const initialEdges = initialNodes.slice(0, -1).map((node: any, index: number) => ({
+        id: `edge-${index}`,
+        source: node.id,
+        target: initialNodes[index + 1].id,
+      }));
+
+      // Create workflow document
+      const newWorkflow = await Workflow.create({
+        workflowId,
+        ownerId,
+        apiName: mcpServer.name,
+        apiPath: `/workflow/run/${workflowId}`,
+        steps: initialNodes,
+        edges: initialEdges,
+        inputVariables: [],
+      });
+
+      logger.info('[workflowMutation] ✅ Created workflow from MCP server', {
+        correlationId: finalCorrelationId,
+        workflowId,
+        nodeCount: initialNodes.length,
+      });
     }
 
+    // Now workflowDoc exists (either found or created)
+    const finalWorkflowDoc = workflowDoc || (await Workflow.findOne({ workflowId, ownerId }))!;
+    
     const existingWorkflow = {
-      nodes: workflowDoc.steps || [],
-      edges: workflowDoc.edges || [],
+      nodes: finalWorkflowDoc.steps || [],
+      edges: finalWorkflowDoc.edges || [],
     };
 
     const nodeCountBefore = existingWorkflow.nodes.length;
@@ -641,11 +739,27 @@ router.post('/mutate-workflow', async (req: Request, res: Response, next: NextFu
     logger.info('[workflowMutation] 📊 Loaded existing workflow', {
       correlationId: finalCorrelationId,
       nodeCountBefore,
+      existingNodes: existingWorkflow.nodes.map((n: any) => ({
+        id: n.id,
+        type: n.type,
+        label: n.data?.label,
+      })),
+      existingEdges: existingWorkflow.edges.map((e: any) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+      })),
+      hasResponseNode: existingWorkflow.nodes.some((n: any) => n.type === 'response'),
+      nodeTypes: existingWorkflow.nodes.map((n: any) => n.type),
     });
 
     // Build mutation prompt
     const nodesSummary = existingWorkflow.nodes
-      .map((n: any, idx: number) => `${idx + 1}. ${n.type} (${n.data?.label || n.type})`)
+      .map((n: any, idx: number) => `${idx + 1}. ID: "${n.id}", Type: ${n.type}, Label: "${n.data?.label || n.type}"`)
+      .join('\n');
+
+    const edgesSummary = existingWorkflow.edges
+      .map((e: any) => `  ${e.source} → ${e.target}`)
       .join('\n');
 
     const mutationPrompt = `
@@ -655,25 +769,50 @@ EXISTING WORKFLOW:
 Nodes (${existingWorkflow.nodes.length}):
 ${nodesSummary}
 
+Current Edges (${existingWorkflow.edges.length}):
+${edgesSummary}
+
 USER REQUEST: ${prompt}
 
-INSTRUCTIONS:
-1. Keep ALL existing nodes unless explicitly asked to remove them
-2. Add ONLY the new nodes needed for the user's request
-3. Update edges to connect new nodes to existing workflow
-4. Preserve the existing workflow structure
+CRITICAL RULES:
+1. Return ONLY new nodes and edges to ADD (use "addedNodes" and "addedEdges")
+2. Do NOT return existing nodes or edges
+3. New edges MUST connect to existing nodes using their EXACT IDs
+4. Think about WHERE in the flow the new functionality belongs
+5. The "response" node (if exists) will AUTOMATICALLY be moved to the end - don't worry about it
 
-Return a JSON object with:
+INSERTION STRATEGY:
+- For JWT/auth: Add AFTER validation, connect to next node
+- For email: Add AFTER main action, connect to response
+- Always maintain flow continuity
+
+EXAMPLE - Adding JWT to signup:
+Existing: input_1 → validate_2 → create_3 → response_4
+Add JWT between validate and create:
 {
-  "newNodes": [array of new nodes to add],
-  "newEdges": [array of new edges to add],
-  "reasoning": "brief explanation of changes"
+  "addedNodes": [{
+    "id": "jwt_gen_5",
+    "type": "jwtGenerate",
+    "data": {
+      "label": "Generate JWT",
+      "fields": {
+        "payload": { "userId": "{{created._id}}" },
+        "expiresIn": "7d",
+        "output": "token"
+      }
+    }
+  }],
+  "addedEdges": [
+    { "id": "edge_5", "source": "validate_2", "target": "jwt_gen_5" },
+    { "id": "edge_6", "source": "jwt_gen_5", "target": "create_3" }
+  ],
+  "reasoning": "Inserted JWT generation between validation and user creation"
 }
 
 Available node types: ${nodeCatalog.map((n) => n.type).join(', ')}
 `.trim();
 
-    const systemPromptMutation = `You are a workflow mutation assistant. You modify existing workflows by adding new nodes and edges. Never regenerate the entire workflow.`;
+    const systemPromptMutation = `You are a workflow mutation assistant. You modify existing workflows by adding new nodes and edges. Return ONLY the additions using "addedNodes" and "addedEdges" keys.`;
 
     logger.info('[workflowMutation] 🤖 Calling AI for mutation', {
       correlationId: finalCorrelationId,
@@ -685,57 +824,253 @@ Available node types: ${nodeCatalog.map((n) => n.type).join(', ')}
     const repaired = repairJson(cleaned);
     const mutation = JSON.parse(repaired);
 
+    // Support both addedNodes/addedEdges (Motia format) and newNodes/newEdges
+    const addedNodes = mutation.addedNodes || mutation.newNodes || [];
+    const addedEdges = mutation.addedEdges || mutation.newEdges || [];
+
     logger.info('[workflowMutation] ✅ AI mutation received', {
       correlationId: finalCorrelationId,
-      newNodesCount: mutation.newNodes?.length || 0,
-      newEdgesCount: mutation.newEdges?.length || 0,
+      addedNodesCount: addedNodes.length,
+      addedEdgesCount: addedEdges.length,
       reasoning: mutation.reasoning,
     });
 
-    // Apply mutation
-    const newNodes = mutation.newNodes || [];
-    const newEdges = mutation.newEdges || [];
-
-    const updatedNodes = [
-      ...existingWorkflow.nodes,
-      ...newNodes.map((node: any) => ({
+    // Sanitize new nodes - ensure they have proper structure
+    const allowedTypes = nodeCatalog.map((n) => n.type);
+    const sanitizedNewNodes = addedNodes
+      .filter((n: any) => allowedTypes.includes(n.type))
+      .map((node: any) => ({
         ...node,
-        id: node.id || `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: node.id || `${node.type}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
         data: {
           ...node.data,
-          _isNew: true,
+          label: node.data?.label || node.type,
+          toolId: node.type, // Set toolId to the node type (e.g., "jwtGenerate")
+          _isNew: true, // Mark for frontend highlighting
         },
-      })),
-    ];
+      }));
 
-    const updatedEdges = [
-      ...existingWorkflow.edges,
-      ...newEdges.map((edge: any) => ({
-        ...edge,
-        id: edge.id || `edge_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      })),
-    ];
+    // ═══════════════════════════════════════════════════════════════
+    // DETERMINISTIC NORMALIZATION: RESPONSE NODE MUST BE LAST
+    // ═══════════════════════════════════════════════════════════════
+
+    let updatedNodes: any[];
+    let updatedEdges: any[];
+
+    // Step 1: Detect Response node
+    const responseNode = existingWorkflow.nodes.find((n: any) => n.type === 'response');
+
+    if (responseNode) {
+      logger.info('[workflowMutation] 🎯 Response node detected', {
+        correlationId: finalCorrelationId,
+        responseNodeId: responseNode.id,
+      });
+
+      // Step 2: Remove Response node and its edges temporarily
+      const nodesWithoutResponse = existingWorkflow.nodes.filter((n: any) => n.type !== 'response');
+      const edgesWithoutResponse = existingWorkflow.edges.filter(
+        (e: any) => e.source !== responseNode.id && e.target !== responseNode.id
+      );
+
+      // Step 3: Deduplicate nodes by ID
+      const existingNodeIds = new Set([
+        ...nodesWithoutResponse.map((n: any) => n.id),
+        responseNode.id,
+      ]);
+
+      const trulyNewNodes = sanitizedNewNodes.filter((n: any) => {
+        if (existingNodeIds.has(n.id)) {
+          logger.warn('[workflowMutation] ⚠️ Duplicate node ID, skipping', {
+            correlationId: finalCorrelationId,
+            nodeId: n.id,
+          });
+          return false;
+        }
+        return true;
+      });
+
+      const intermediateNodes = [...nodesWithoutResponse, ...trulyNewNodes];
+
+      // Step 4: Deduplicate edges by ID
+      const existingEdgeIds = new Set(edgesWithoutResponse.map((e: any) => e.id));
+      const trulyNewEdges = addedEdges
+        .filter((e: any) => !existingEdgeIds.has(e.id))
+        .map((e: any) => ({
+          ...e,
+          id: e.id || `edge_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        }));
+
+      // Step 4.5: Remove edges that are directly replaced by new edges
+      // An edge A→B is replaced if there's a new edge A→X (same source, different target)
+      const edgesToRemove = new Set<string>();
+      
+      for (const newEdge of trulyNewEdges) {
+        // Find existing edges with the same source
+        for (const oldEdge of edgesWithoutResponse) {
+          if (oldEdge.source === newEdge.source && oldEdge.target !== newEdge.target) {
+            // Check if the new edge's target connects to the old edge's target
+            // This means we're inserting a node in between
+            const connectsToOldTarget = trulyNewEdges.some(
+              (e: any) => e.source === newEdge.target && e.target === oldEdge.target
+            );
+            
+            if (connectsToOldTarget) {
+              edgesToRemove.add(oldEdge.id);
+              logger.info('[workflowMutation] 🗑️ Removing replaced edge', {
+                correlationId: finalCorrelationId,
+                removedEdge: `${oldEdge.source} → ${oldEdge.target}`,
+                replacedBy: `${newEdge.source} → ${newEdge.target} → ${oldEdge.target}`,
+              });
+            }
+          }
+        }
+      }
+      
+      const edgesWithoutReplaced = edgesWithoutResponse.filter((e: any) => !edgesToRemove.has(e.id));
+
+      const edgesBetweenNodes = [
+        ...edgesWithoutReplaced,
+        ...trulyNewEdges.filter((e: any) => e.target !== responseNode.id),
+      ];
+
+      // Step 5: Find terminal nodes (nodes with no outgoing edges)
+      const nodesWithOutgoingEdges = new Set(edgesBetweenNodes.map((e: any) => e.source));
+      const terminalNodes = intermediateNodes.filter((n: any) => !nodesWithOutgoingEdges.has(n.id));
+
+      logger.info('[workflowMutation] 🎯 Terminal nodes identified', {
+        correlationId: finalCorrelationId,
+        terminalNodeCount: terminalNodes.length,
+        terminalNodeIds: terminalNodes.map((n: any) => n.id),
+      });
+
+      // Step 6: Connect all terminal nodes to Response
+      const edgesToResponse = terminalNodes.map((n: any) => ({
+        id: `edge_to_response_${n.id}`,
+        source: n.id,
+        target: responseNode.id,
+      }));
+
+      // Remove duplicate edges to Response (keep only one per source)
+      const uniqueEdgesToResponse = Array.from(
+        new Map(edgesToResponse.map((e) => [e.source, e])).values()
+      );
+
+      // Step 7: Build final graph with Response as last node
+      updatedNodes = [...intermediateNodes, responseNode];
+      updatedEdges = [...edgesBetweenNodes, ...uniqueEdgesToResponse];
+
+      logger.info('[workflowMutation] ✅ Response node reinserted as last', {
+        correlationId: finalCorrelationId,
+        finalNodeCount: updatedNodes.length,
+        finalEdgeCount: updatedEdges.length,
+        edgesToResponse: uniqueEdgesToResponse.length,
+      });
+    } else {
+      // No response node - simple append
+      const existingNodeIds = new Set(existingWorkflow.nodes.map((n: any) => n.id));
+      const trulyNewNodes = sanitizedNewNodes.filter((n: any) => !existingNodeIds.has(n.id));
+
+      const existingEdgeIds = new Set(existingWorkflow.edges.map((e: any) => e.id));
+      const trulyNewEdges = addedEdges
+        .filter((e: any) => !existingEdgeIds.has(e.id))
+        .map((e: any) => ({
+          ...e,
+          id: e.id || `edge_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        }));
+
+      updatedNodes = [...existingWorkflow.nodes, ...trulyNewNodes];
+      updatedEdges = [...existingWorkflow.edges, ...trulyNewEdges];
+
+      logger.info('[workflowMutation] ✅ Mutation applied (no response node)', {
+        correlationId: finalCorrelationId,
+        nodesAdded: trulyNewNodes.length,
+        edgesAdded: trulyNewEdges.length,
+      });
+    }
 
     const nodeCountAfter = updatedNodes.length;
     const nodesAdded = nodeCountAfter - nodeCountBefore;
 
-    logger.info('[workflowMutation] 📈 Mutation applied', {
+    logger.info('[workflowMutation] 📈 Mutation complete', {
       correlationId: finalCorrelationId,
       nodeCountBefore,
       nodeCountAfter,
       nodesAdded,
-      edgesAdded: newEdges.length,
+      edgesAdded: addedEdges.length,
     });
 
-    // Save mutated workflow
-    workflowDoc.steps = updatedNodes;
-    workflowDoc.edges = updatedEdges;
-    await workflowDoc.save();
+    // Save mutated workflow to workflows collection (for tracking)
+    finalWorkflowDoc.steps = updatedNodes;
+    finalWorkflowDoc.edges = updatedEdges;
+    await finalWorkflowDoc.save();
 
-    logger.info('[workflowMutation] 💾 Mutated workflow saved', {
+    logger.info('[workflowMutation] 💾 Mutated workflow saved to workflows collection', {
       correlationId: finalCorrelationId,
       workflowId,
     });
+
+    // ALSO update the MCP server directly so changes persist on reload
+    // Extract serverId from workflowId (format: mcp_workflow_{serverId}_{timestamp})
+    // serverId format: mcp_{timestamp}_{hash}
+    const serverIdMatch = workflowId.match(/mcp_workflow_(mcp_\d+_[a-f0-9]+)_\d+/);
+    if (serverIdMatch) {
+      const serverId = serverIdMatch[1];
+      
+      logger.info('[workflowMutation] 📝 Updating MCP server', {
+        correlationId: finalCorrelationId,
+        workflowId,
+        serverId,
+      });
+      
+      try {
+        const mcpServer = await MCPServer.findOne({ serverId, ownerId });
+        
+        if (mcpServer) {
+          // Convert nodes to MCP tools format
+          const updatedTools = updatedNodes.map((node: any) => {
+            // Use the original toolId from node data, or derive from node type
+            const toolId = node.data?.toolId || node.type;
+            
+            // Prefer inputSchema if it exists, otherwise use fields directly
+            // This ensures consistency: fields are stored at the top level of inputSchema
+            let inputSchema = {};
+            if (node.data?.inputSchema) {
+              inputSchema = node.data.inputSchema;
+            } else if (node.data?.fields) {
+              // Flatten fields to top level (not nested under 'fields' key)
+              inputSchema = { ...node.data.fields };
+            }
+            
+            return {
+              toolId: toolId,
+              name: node.data?.label || node.type,
+              description: node.data?.description || `${node.type} operation`,
+              inputSchema: inputSchema,
+              outputSchema: node.data?.outputSchema || {},
+            };
+          });
+
+          // Update execution order using proper toolIds
+          const executionOrder = updatedNodes.map((node: any) => node.data?.toolId || node.type);
+
+          mcpServer.tools = updatedTools;
+          mcpServer.executionOrder = executionOrder;
+          await mcpServer.save();
+
+          logger.info('[workflowMutation] 💾 MCP server updated', {
+            correlationId: finalCorrelationId,
+            serverId,
+            toolsCount: updatedTools.length,
+            tools: updatedTools.map(t => ({ toolId: t.toolId, name: t.name })),
+          });
+        }
+      } catch (mcpError) {
+        logger.warn('[workflowMutation] ⚠️ Failed to update MCP server', {
+          correlationId: finalCorrelationId,
+          error: (mcpError as Error).message,
+        });
+      }
+    }
 
     res.status(200).json({
       workflowId,
@@ -745,7 +1080,7 @@ Available node types: ${nodeCatalog.map((n) => n.type).join(', ')}
         nodesAdded,
         nodeCountBefore,
         nodeCountAfter,
-        newNodeIds: newNodes.map((n: any) => n.id),
+        newNodeIds: sanitizedNewNodes.map((n: any) => n.id),
       },
       reasoning: mutation.reasoning,
       correlationId: finalCorrelationId,

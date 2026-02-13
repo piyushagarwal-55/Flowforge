@@ -93,7 +93,29 @@ export function registerBuiltInTools(): void {
       },
       required: ["variables"],
     },
+    outputSchema: {
+      type: "object",
+      properties: {
+        variables: {
+          type: "object",
+          description: "Extracted input variables",
+        },
+      },
+    },
     handler: async (input: any, context: any) => {
+      // Debug logging
+      logger.debug('[input tool] Handler called', {
+        hasInput: !!input,
+        hasContext: !!context,
+        hasVars: !!context?.vars,
+        contextKeys: context ? Object.keys(context) : [],
+        varsKeys: context?.vars ? Object.keys(context.vars) : [],
+      });
+
+      if (!context || !context.vars) {
+        throw new Error('Context or context.vars is undefined');
+      }
+
       const { variables } = input;
       const inputData = context.vars.input?.input || context.vars.input || {};
       const result: Record<string, any> = {};
@@ -138,6 +160,12 @@ export function registerBuiltInTools(): void {
         },
       },
       required: ["rules"],
+    },
+    outputSchema: {
+      type: "object",
+      properties: {
+        valid: { type: "boolean", description: "Validation result" },
+      },
     },
     handler: async (input: any, context: any) => {
       const { rules } = input;
@@ -207,6 +235,14 @@ export function registerBuiltInTools(): void {
       },
       required: ["collection", "filters"],
     },
+    outputSchema: {
+      type: "object",
+      properties: {
+        found: { type: "boolean", description: "Whether document(s) were found" },
+        resultCount: { type: "number", description: "Number of results" },
+        data: { type: "object", description: "Found document(s)" },
+      },
+    },
     handler: async (input: any, context: any) => {
       const { collection, findType = "one", filters, output = "found" } = input;
       const Model = getModel(collection);
@@ -244,6 +280,14 @@ export function registerBuiltInTools(): void {
         output: { type: "string" },
       },
       required: ["collection", "data"],
+    },
+    outputSchema: {
+      type: "object",
+      properties: {
+        success: { type: "boolean", description: "Insert success status" },
+        documentId: { type: "string", description: "Created document ID" },
+        data: { type: "object", description: "Created document" },
+      },
     },
     handler: async (input: any, context: any) => {
       const { collection, data, output = "created" } = input;
@@ -293,6 +337,14 @@ export function registerBuiltInTools(): void {
       },
       required: ["collection", "filter", "data"],
     },
+    outputSchema: {
+      type: "object",
+      properties: {
+        success: { type: "boolean", description: "Update success status" },
+        documentFound: { type: "boolean", description: "Whether document was found" },
+        data: { type: "object", description: "Updated document" },
+      },
+    },
     handler: async (input: any, context: any) => {
       const { collection, filter, data, output = "updated" } = input;
       const Model = getModel(collection);
@@ -338,6 +390,14 @@ export function registerBuiltInTools(): void {
         output: { type: "string" },
       },
     },
+    outputSchema: {
+      type: "object",
+      properties: {
+        authenticated: { type: "boolean", description: "Authentication status" },
+        userId: { type: "string", description: "Authenticated user ID" },
+        user: { type: "object", description: "Decoded user data" },
+      },
+    },
     handler: async (input: any, context: any) => {
       const { output = "currentUser" } = input;
       const auth =
@@ -378,6 +438,13 @@ export function registerBuiltInTools(): void {
         output: { type: "string" },
       },
       required: ["payload"],
+    },
+    outputSchema: {
+      type: "object",
+      properties: {
+        tokenGenerated: { type: "boolean", description: "Token generation status" },
+        token: { type: "string", description: "Generated JWT token" },
+      },
     },
     handler: async (input: any, context: any) => {
       const {
@@ -420,6 +487,14 @@ export function registerBuiltInTools(): void {
       },
       required: ["to", "subject", "body"],
     },
+    outputSchema: {
+      type: "object",
+      properties: {
+        sent: { type: "boolean", description: "Email send status" },
+        recipient: { type: "string", description: "Email recipient" },
+        timestamp: { type: "string", description: "Send timestamp" },
+      },
+    },
     handler: async (input: any, context: any) => {
       const to = resolveObject(context.vars, input.to);
       const subject = resolveObject(context.vars, input.subject);
@@ -461,6 +536,13 @@ export function registerBuiltInTools(): void {
       properties: {
         status: { type: "number" },
         body: { type: "object" },
+      },
+    },
+    outputSchema: {
+      type: "object",
+      properties: {
+        status: { type: "number", description: "HTTP status code" },
+        body: { type: "object", description: "Response body" },
       },
     },
     handler: async (input: any, context: any) => {

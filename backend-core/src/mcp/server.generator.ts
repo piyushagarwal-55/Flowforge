@@ -156,11 +156,21 @@ function nodeToTool(node: WorkflowNode): Omit<MCPTool, "handler"> {
     },
   };
 
+  // Merge the schema structure with actual field values from the node
+  // The fields contain the actual configuration like collection: "users", data: {...}
+  const inputSchemaWithValues = { ...schema.inputSchema };
+  
+  // For tools that need actual values, merge them in
+  if (fields && Object.keys(fields).length > 0) {
+    // Add the actual field values to the schema
+    Object.assign(inputSchemaWithValues, fields);
+  }
+
   return {
     toolId: toolId, // Use type as toolId (input, dbInsert, etc.)
     name: data.label || type,
     description: `${type} operation`,
-    inputSchema: schema.inputSchema,
+    inputSchema: inputSchemaWithValues,
     outputSchema: {
       type: "object",
       properties: {
@@ -262,7 +272,20 @@ ${schemaPrompt}
   const raw = await ai.generateWorkflow(finalUser, finalSystem);
   const cleaned = extractJson(raw);
   const repaired = repairJson(cleaned);
-  const workflow: WorkflowDefinition = JSON.parse(repaired);
+  
+  let workflow: WorkflowDefinition;
+  try {
+    workflow = JSON.parse(repaired);
+  } catch (parseError) {
+    logger.error("[generateMCPServer] JSON parse failed", {
+      correlationId: finalCorrelationId,
+      error: (parseError as Error).message,
+      rawLength: raw.length,
+      cleanedLength: cleaned.length,
+      repairedPreview: repaired.slice(0, 500),
+    });
+    throw new Error(`Failed to parse AI response: ${(parseError as Error).message}`);
+  }
 
   logger.info("[generateMCPServer] Workflow generated", {
     correlationId: finalCorrelationId,
@@ -288,6 +311,9 @@ ${schemaPrompt}
   const tools = Array.from(toolMap.values());
   const resources = extractResources(workflow.nodes);
 
+  // Generate execution order from workflow edges
+  const executionOrder = generateExecutionOrder(workflow.nodes, workflow.edges);
+
   const mcpServer: MCPServer = {
     serverId,
     name: serverName,
@@ -296,6 +322,7 @@ ${schemaPrompt}
     resources,
     agents: [], // No agents initially
     permissions: [], // No permissions initially
+    executionOrder,
     status: "created",
     createdAt: new Date(),
     ownerId,
@@ -306,10 +333,71 @@ ${schemaPrompt}
     serverId,
     toolCount: tools.length,
     resourceCount: resources.length,
+    executionOrder,
     deduplicatedFrom: allTools.length,
   });
 
   return mcpServer;
+}
+
+/**
+ * Generate execution order from workflow nodes and edges
+ * Uses topological sort to determine correct execution sequence
+ */
+function generateExecutionOrder(nodes: WorkflowNode[], edges: WorkflowEdge[]): string[] {
+  // Build adjacency list
+  const graph = new Map<string, string[]>();
+  const inDegree = new Map<string, number>();
+
+  // Initialize
+  for (const node of nodes) {
+    graph.set(node.id, []);
+    inDegree.set(node.id, 0);
+  }
+
+  // Build graph from edges
+  for (const edge of edges) {
+    const from = edge.source;
+    const to = edge.target;
+    graph.get(from)?.push(to);
+    inDegree.set(to, (inDegree.get(to) || 0) + 1);
+  }
+
+  // Topological sort (Kahn's algorithm)
+  const queue: string[] = [];
+  const result: string[] = [];
+
+  // Start with nodes that have no dependencies
+  for (const [nodeId, degree] of inDegree.entries()) {
+    if (degree === 0) {
+      queue.push(nodeId);
+    }
+  }
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const node = nodes.find(n => n.id === current);
+    if (node) {
+      result.push(node.type); // Use type (toolId) instead of id
+    }
+
+    // Reduce in-degree for neighbors
+    for (const neighbor of graph.get(current) || []) {
+      const newDegree = (inDegree.get(neighbor) || 0) - 1;
+      inDegree.set(neighbor, newDegree);
+      if (newDegree === 0) {
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  // If result doesn't include all nodes, there's a cycle or disconnected nodes
+  // Fall back to original node order
+  if (result.length !== nodes.length) {
+    return nodes.map(n => n.type);
+  }
+
+  return result;
 }
 
 /**

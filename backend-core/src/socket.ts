@@ -7,6 +7,7 @@ let io: Server | null = null;
 export interface SocketServer {
   io: Server;
   emitExecutionLog(executionId: string, logData: ExecutionLogData): void;
+  emitToRoom(room: string, event: string, data: any): void;
 }
 
 export interface ExecutionLogData {
@@ -53,6 +54,15 @@ export function initSocket(httpServer: http.Server): SocketServer {
       socket.emit("joined-execution", { executionId });
     });
 
+    // Handle client joining any room (generic)
+    socket.on("join-room", (room: string) => {
+      socket.join(room);
+      logger.info("📡 Joined room", {
+        socketId: socket.id,
+        room,
+      });
+    });
+
     // Handle client leaving execution room
     socket.on("leave-execution", (executionId: string) => {
       socket.leave(executionId);
@@ -97,6 +107,20 @@ export function initSocket(httpServer: http.Server): SocketServer {
         executionId,
         type: logData.type,
         stepIndex: logData.stepIndex,
+      });
+    },
+    emitToRoom: (room: string, event: string, data: any) => {
+      if (!io) {
+        logger.error("Socket.io not initialized");
+        return;
+      }
+
+      // Emit to specific room
+      io.to(room).emit(event, data);
+
+      logger.debug("Emitted to room", {
+        room,
+        event,
       });
     },
   };

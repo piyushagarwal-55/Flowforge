@@ -8,6 +8,8 @@ import { MCPServer, MCPToolInvocation, MCPAgent, PermissionDeniedError } from ".
 import { toolRegistry } from "./tool.registry";
 import { logger } from "../utils/logger";
 import { SocketServer } from "../socket";
+import { archestraService } from "../services/archestra.service";
+import { eventRingBuffer } from "../services/eventRingBuffer";
 
 interface RuntimeContext {
   vars: Record<string, any>;
@@ -58,6 +60,27 @@ class RuntimeManager {
     runtime.updatedAt = new Date();
 
     logger.info(`Runtime started: ${serverId}`);
+    
+    // Log event to ring buffer
+    eventRingBuffer.add({
+      id: uuidv4(),
+      type: 'runtime_started',
+      serverId,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        name: runtime.name,
+        toolCount: runtime.tools.length,
+        agentCount: runtime.agents.length,
+      },
+    });
+    
+    // Send telemetry to Archestra
+    archestraService.runtimeStarted(serverId, {
+      name: runtime.name,
+      toolCount: runtime.tools.length,
+      agentCount: runtime.agents.length,
+    });
+    
     return true;
   }
 
@@ -76,6 +99,23 @@ class RuntimeManager {
     runtime.updatedAt = new Date();
 
     logger.info(`Runtime stopped: ${serverId}`);
+    
+    // Log event to ring buffer
+    eventRingBuffer.add({
+      id: uuidv4(),
+      type: 'runtime_stopped',
+      serverId,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        name: runtime.name,
+      },
+    });
+    
+    // Send telemetry to Archestra
+    archestraService.runtimeStopped(serverId, {
+      name: runtime.name,
+    });
+    
     return true;
   }
 
@@ -191,6 +231,25 @@ class RuntimeManager {
         });
 
         logger.error(`Permission denied: ${error.message}`);
+        
+        // Log event to ring buffer
+        eventRingBuffer.add({
+          id: uuidv4(),
+          type: 'permission_denied',
+          serverId,
+          agentId,
+          toolId,
+          timestamp: new Date().toISOString(),
+          metadata: {
+            error: error.message,
+          },
+        });
+        
+        // Send telemetry to Archestra
+        archestraService.permissionDenied(serverId, toolId, agentId, {
+          error: error.message,
+        });
+        
         throw error;
       }
     }
@@ -235,9 +294,38 @@ class RuntimeManager {
 
     logger.info(`Tool invocation started: ${toolId} (${invocationId})`);
 
+    // Log event to ring buffer
+    eventRingBuffer.add({
+      id: invocationId,
+      type: 'tool_invoked',
+      serverId,
+      agentId,
+      toolId,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        toolName: tool.name,
+      },
+    });
+
+    // Send telemetry to Archestra
+    archestraService.toolInvoked(serverId, toolId, agentId, {
+      invocationId,
+      toolName: tool.name,
+    });
+
     try {
       // Invoke tool handler
       const startTime = Date.now();
+      
+      // Debug logging for context
+      logger.debug(`[invokeTool] Invoking ${toolId}`, {
+        invocationId,
+        hasContext: !!context,
+        hasVars: !!context?.vars,
+        varsKeys: context?.vars ? Object.keys(context.vars) : [],
+        input: JSON.stringify(input),
+      });
+      
       const output = await tool.handler(input, context);
       const durationMs = Date.now() - startTime;
 
@@ -260,6 +348,29 @@ class RuntimeManager {
       });
 
       logger.info(`Tool invocation completed: ${toolId} (${invocationId}) in ${durationMs}ms`);
+
+      // Log event to ring buffer
+      eventRingBuffer.add({
+        id: uuidv4(),
+        type: 'tool_completed',
+        serverId,
+        agentId,
+        toolId,
+        duration: durationMs,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          invocationId,
+          toolName: tool.name,
+          success: true,
+        },
+      });
+
+      // Send telemetry to Archestra
+      archestraService.toolCompleted(serverId, toolId, durationMs, agentId, {
+        invocationId,
+        toolName: tool.name,
+        success: true,
+      });
 
       return output;
     } catch (error: any) {

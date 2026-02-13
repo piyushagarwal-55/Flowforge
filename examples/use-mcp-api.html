@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Workflow Dashboard - API Example</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0a0a0a;
+            color: #fff;
+        }
+        .container {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 30px;
+        }
+        h1 {
+            margin-top: 0;
+            color: #10b981;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .info-box {
+            background: #0f0f0f;
+            border: 1px solid #10b981;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+        }
+        .info-box h3 {
+            margin-top: 0;
+            color: #10b981;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 16px 0;
+            background: #10b981;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #059669;
+        }
+        button:disabled {
+            background: #333;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 16px;
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .error {
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+        .success {
+            border-color: #10b981;
+            color: #10b981;
+        }
+        .history {
+            margin-top: 30px;
+        }
+        .history-item {
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+        }
+        .history-item.success {
+            border-color: #10b981;
+        }
+        .history-item.failed {
+            border-color: #ef4444;
+        }
+        .timestamp {
+            color: #666;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            <span>🚀</span>
+            MCP Workflow Dashboard
+        </h1>
+        <p>Interactive API testing with execution history</p>
+        
+        <div class="info-box">
+            <h3>💡 How it works</h3>
+            <p>This dashboard simulates the interactive workflow experience. Send natural language prompts and see the execution history build up, just like in the main application.</p>
+        </div>
+        
+        <input type="text" id="apiEndpoint" placeholder="API Endpoint (e.g., http://localhost:4000/mcp/api/mcp_xxx)">
+        
+        <textarea id="prompt" placeholder="Enter your prompt (e.g., 'create user with email john@example.com password secret123 name John Doe')"></textarea>
+        
+        <button onclick="sendPrompt()">Send Prompt</button>
+        
+        <div id="result"></div>
+
+        <div class="history">
+            <h3>Execution History</h3>
+            <div id="historyList"></div>
+        </div>
+    </div>
+
+    <script>
+        let executionHistory = [];
+
+        async function sendPrompt() {
+            const endpoint = document.getElementById('apiEndpoint').value;
+            const prompt = document.getElementById('prompt').value;
+            
+            if (!endpoint || !prompt) {
+                alert('Please fill in both endpoint and prompt');
+                return;
+            }
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result';
+            resultDiv.textContent = 'Processing...';
+            
+            const startTime = Date.now();
+            
+            try {
+                // Parse prompt to extract data
+                const inputData = parsePrompt(prompt);
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(inputData)
+                });
+                
+                const data = await response.json();
+                const duration = Date.now() - startTime;
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = '✅ Success!\n\n' + JSON.stringify(data, null, 2);
+                    
+                    // Add to history
+                    addToHistory({
+                        prompt,
+                        status: 'success',
+                        duration,
+                        result: data,
+                        timestamp: new Date().toLocaleTimeString()
+                    });
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '❌ Error!\n\n' + JSON.stringify(data, null, 2);
+                    
+                    addToHistory({
+                        prompt,
+                        status: 'failed',
+                        duration,
+                        error: data.error || 'Unknown error',
+                        timestamp: new Date().toLocaleTimeString()
+                    });
+                }
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ Error!\n\n' + error.message;
+                
+                addToHistory({
+                    prompt,
+                    status: 'failed',
+                    duration,
+                    error: error.message,
+                    timestamp: new Date().toLocaleTimeString()
+                });
+            }
+        }
+
+        function parsePrompt(prompt) {
+            // Simple parser to extract email, password, name from natural language
+            const emailMatch = prompt.match(/email[:\s]+([^\s,]+@[^\s,]+)/i);
+            const passwordMatch = prompt.match(/password[:\s]+([^\s,]+)/i);
+            const nameMatch = prompt.match(/name[:\s]+([^,\n]+)/i);
+
+            return {
+                email: emailMatch?.[1] || `user${Date.now()}@example.com`,
+                password: passwordMatch?.[1] || 'defaultPassword123',
+                name: nameMatch?.[1]?.trim() || 'User'
+            };
+        }
+
+        function addToHistory(execution) {
+            executionHistory.unshift(execution);
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const historyList = document.getElementById('historyList');
+            
+            if (executionHistory.length === 0) {
+                historyList.innerHTML = '<p style="color: #666; text-align: center;">No executions yet</p>';
+                return;
+            }
+
+            historyList.innerHTML = executionHistory.map(exec => `
+                <div class="history-item ${exec.status}">
+                    <div class="timestamp">${exec.timestamp} • ${exec.duration}ms</div>
+                    <div style="margin: 8px 0; color: #fff;">${exec.prompt}</div>
+                    <div style="font-size: 11px; color: ${exec.status === 'success' ? '#10b981' : '#ef4444'};">
+                        ${exec.status === 'success' ? '✅ Success' : '❌ Failed'}
+                        ${exec.error ? ` - ${exec.error}` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Initialize
+        renderHistory();
+    </script>
+</body>
+</html>

@@ -54,9 +54,16 @@ export function BaseNode({ id, data }: BaseNodeProps) {
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-white/[0.08] to-white/[0.04] backdrop-blur-sm flex items-center justify-center border border-white/[0.06]">
           <div className="text-white/70">{data.icon}</div>
         </div>
-        <span className="font-semibold text-[14px] text-white/90">
-          {data.label}
-        </span>
+        <div className="flex-1">
+          <span className="font-semibold text-[14px] text-white/90 block">
+            {data.label}
+          </span>
+          {(data as any).description && (
+            <span className="text-[11px] text-white/40 block mt-0.5 line-clamp-1">
+              {(data as any).description}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* FIELDS DISPLAY */}

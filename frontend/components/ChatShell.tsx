@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Sparkles } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
+import { useRouter } from "next/navigation";
+import { generateMCPServer, createAndAttachAgent } from "@/lib/mcpApi";
+import { useMCPStore } from "@/lib/mcpStore";
 
 interface Message {
   id: string;
@@ -16,16 +19,16 @@ interface IntentResponse {
   workflowPrompt?: string;
   components: string[];
   correlationId: string;
-  workflowId?: string; // ✅ NEW: Track workflow across conversation
+  workflowId?: string;
   isNewWorkflow?: boolean;
   existingNodeCount?: number;
 }
 
 interface ChatShellProps {
-  onIntentReceived: (intent: IntentResponse) => void;
-  workflowId?: string; // ✅ NEW: Current active workflow
-  onWorkflowIdChange?: (workflowId: string) => void; // ✅ NEW: Notify parent of workflow changes
-  compact?: boolean; // ✅ NEW: Compact mode for bottom bar
+  onIntentReceived?: (intent: IntentResponse) => void;
+  workflowId?: string;
+  onWorkflowIdChange?: (workflowId: string) => void;
+  compact?: boolean;
 }
 
 export function ChatShell({ onIntentReceived, workflowId, onWorkflowIdChange, compact = false }: ChatShellProps) {
@@ -33,28 +36,12 @@ export function ChatShell({ onIntentReceived, workflowId, onWorkflowIdChange, co
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const router = useRouter();
+  const { setCurrentServerId, setCurrentAgentId } = useMCPStore();
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
-
-  // ✅ Log workflowId changes
-  useEffect(() => {
-    if (workflowId) {
-      console.log(`[ChatShell] 🔗 Active workflowId:`, {
-        workflowId,
-        timestamp: new Date().toISOString(),
-      });
-    }
-  }, [workflowId]);
-
-  // ✅ Clear messages when starting new workflow (workflowId becomes undefined)
-  useEffect(() => {
-    if (workflowId === undefined && messages.length > 0) {
-      console.log(`[ChatShell] 🧹 Clearing messages for new workflow`);
-      setMessages([]);
-    }
-  }, [workflowId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,74 +67,78 @@ export function ChatShell({ onIntentReceived, workflowId, onWorkflowIdChange, co
     setIsLoading(true);
 
     try {
-      console.log(`[ChatShell] 📡 Sending to backend /ai/intent`, {
+      console.log(`[ChatShell] 📡 Generating MCP server`, {
         correlationId,
-        payload: { 
-          prompt: userMessage.content,
-          workflowId, // ✅ NEW: Send existing workflowId
-          ownerId: "user_default", // TODO: Get from auth
-        },
-        hasWorkflowId: !!workflowId,
+        prompt: userMessage.content,
       });
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"}/ai/intent`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: userMessage.content,
-            correlationId,
-            workflowId, // ✅ NEW: Include workflowId for conversation continuity
-            ownerId: "user_default",
-          }),
-        }
-      );
+      // Generate MCP server
+      const mcpServer = await generateMCPServer(userMessage.content);
 
-      if (!response.ok) {
-        throw new Error(`Backend returned ${response.status}`);
-      }
-
-      const intentData: IntentResponse = await response.json();
-
-      console.log(`[ChatShell] ✅ Backend intent received`, {
+      console.log(`[ChatShell] ✅ MCP server generated`, {
         correlationId,
-        workflowPrompt: intentData.workflowPrompt,
-        components: intentData.components,
-        workflowId: intentData.workflowId, // ✅ NEW: Log returned workflowId
-        isNewWorkflow: intentData.isNewWorkflow,
-        existingNodeCount: intentData.existingNodeCount,
-        rawResponse: intentData,
+        serverId: mcpServer.serverId,
+        name: mcpServer.name,
+        toolCount: mcpServer.tools.length,
+        apiEndpoint: mcpServer.apiEndpoint,
       });
 
-      // ✅ NEW: Update workflowId if changed
-      if (intentData.workflowId && intentData.workflowId !== workflowId) {
-        console.log(`[ChatShell] 🆕 WorkflowId updated`, {
-          old: workflowId,
-          new: intentData.workflowId,
-          correlationId,
-        });
-        onWorkflowIdChange?.(intentData.workflowId);
+      // Store serverId and API metadata
+      setCurrentServerId(mcpServer.serverId);
+      
+      // Store API metadata in localStorage for display
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`mcp_api_${mcpServer.serverId}`, JSON.stringify({
+          apiEndpoint: mcpServer.apiEndpoint,
+          exampleCurl: mcpServer.exampleCurl,
+          exampleFetch: mcpServer.exampleFetch,
+        }));
       }
+
+      // Auto-create and attach agent
+      console.log(`[ChatShell] 🤖 Creating and attaching agent`, {
+        correlationId,
+        serverId: mcpServer.serverId,
+      });
+
+      const agentId = await createAndAttachAgent(mcpServer.serverId, mcpServer.tools);
+
+      console.log(`[ChatShell] ✅ Agent created and attached`, {
+        correlationId,
+        agentId,
+      });
+
+      // Store agentId
+      setCurrentAgentId(agentId);
 
       const assistantMessage: Message = {
         id: uuidv4(),
         role: "assistant",
-        content: intentData.workflowPrompt || "Processing your request...",
+        content: `Created MCP server "${mcpServer.name}" with ${mcpServer.tools.length} tools. Redirecting to dashboard...`,
         timestamp: Date.now(),
         correlationId,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
 
-      console.log(`[ChatShell] 🎯 Calling onIntentReceived`, {
-        correlationId,
-        intent: intentData,
-      });
+      // Navigate to MCP dashboard
+      setTimeout(() => {
+        router.push(`/mcp?serverId=${mcpServer.serverId}`);
+      }, 1000);
 
-      onIntentReceived(intentData);
+      // Call legacy callback if provided
+      if (onIntentReceived) {
+        onIntentReceived({
+          workflowPrompt: userMessage.content,
+          components: ['MCPDashboard'],
+          correlationId,
+          workflowId: mcpServer.serverId,
+          isNewWorkflow: true,
+          existingNodeCount: 0,
+        });
+      }
     } catch (error) {
-      console.error(`[ChatShell] ❌ Error processing intent`, {
+      console.error(`[ChatShell] ❌ Error processing request`, {
         correlationId,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -155,7 +146,7 @@ export function ChatShell({ onIntentReceived, workflowId, onWorkflowIdChange, co
       const errorMessage: Message = {
         id: uuidv4(),
         role: "assistant",
-        content: "Sorry, I encountered an error processing your request.",
+        content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         timestamp: Date.now(),
         correlationId,
       };

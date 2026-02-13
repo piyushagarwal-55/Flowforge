@@ -14,6 +14,7 @@ export interface IMCPServer extends Document {
   resources: any[];
   agents: any[];
   permissions: any[];
+  executionOrder?: string[];
   status: "created" | "running" | "stopped" | "error";
   createdAt: Date;
   updatedAt?: Date;
@@ -50,6 +51,10 @@ const MCPServerSchema = new Schema<IMCPServer>(
     },
     permissions: {
       type: [Schema.Types.Mixed],
+      default: [],
+    },
+    executionOrder: {
+      type: [String],
       default: [],
     },
     status: {

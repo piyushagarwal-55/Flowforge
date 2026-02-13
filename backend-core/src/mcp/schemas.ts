@@ -3,20 +3,44 @@
  * Defines MCP primitives that replace workflow concepts
  */
 
+export interface MCPToolSchema {
+  type: "object";
+  properties: Record<string, any>;
+  required?: string[];
+}
+
 export interface MCPTool {
   toolId: string;
   name: string;
   description: string;
-  inputSchema: {
-    type: "object";
-    properties: Record<string, any>;
-    required?: string[];
-  };
-  outputSchema?: {
-    type: "object";
-    properties: Record<string, any>;
-  };
+  inputSchema: MCPToolSchema;
+  outputSchema: MCPToolSchema; // Now required
   handler: (input: any, context: any) => Promise<any>;
+}
+
+/**
+ * Infer basic schema from tool if missing
+ */
+export function inferToolSchema(tool: Partial<MCPTool>): MCPTool {
+  const inputSchema = tool.inputSchema || {
+    type: "object" as const,
+    properties: {},
+    required: [],
+  };
+
+  const outputSchema = tool.outputSchema || {
+    type: "object" as const,
+    properties: {
+      success: { type: "boolean", description: "Operation success status" },
+      data: { type: "object", description: "Result data" },
+    },
+  };
+
+  return {
+    ...tool,
+    inputSchema,
+    outputSchema,
+  } as MCPTool;
 }
 
 export interface MCPResource {
@@ -62,6 +86,7 @@ export interface MCPServer {
   resources: MCPResource[];
   agents: MCPAgent[];
   permissions: MCPPermission[];
+  executionOrder?: string[]; // Ordered list of toolIds for one-click execution
   status: "created" | "running" | "stopped" | "error";
   createdAt: Date;
   updatedAt?: Date;

@@ -11,7 +11,9 @@
     "test": "bun test",
     "test:mcp": "bun run test-mcp-infrastructure.ts",
     "test:mcp:e2e": "bun run src/mcp/tests/e2e.infrastructure.test.ts",
-    "test:agent": "bun run src/mcp/tests/agent.orchestration.test.ts"
+    "test:agent": "bun run src/mcp/tests/agent.orchestration.test.ts",
+    "test:platform": "bun run src/mcp/tests/platform.integration.test.ts",
+    "test:http-api": "bun run scripts/test-http-api.ts"
   },
   "keywords": [
     "orchestrix",
@@ -24,6 +26,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@huggingface/inference": "^2.6.4",
+    "axios": "^1.6.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",

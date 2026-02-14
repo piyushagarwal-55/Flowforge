@@ -78,6 +78,12 @@ export default function MCPWorkflowDashboard({
   const [runtimeStatus, setRuntimeStatus] = useState<'running' | 'stopped' | 'not_loaded'>('not_loaded');
   const [isTogglingRuntime, setIsTogglingRuntime] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [deploymentInfo, setDeploymentInfo] = useState<{
+    agentId: string;
+    endpoint: string;
+    dashboardUrl: string;
+  } | null>(null);
   
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
   const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
@@ -197,6 +203,19 @@ export default function MCPWorkflowDashboard({
       const data = await response.json();
       setRuntimeStatus(data.runtimeStatus || 'not_loaded');
       console.log('[MCPWorkflow] Runtime status:', data.runtimeStatus);
+      
+      // Check if already deployed to Archestra
+      if (data.archestraAgentId) {
+        setDeploymentInfo({
+          agentId: data.archestraAgentId,
+          endpoint: data.archestraEndpoint,
+          dashboardUrl: data.archestraDashboardUrl,
+        });
+        console.log('[MCPWorkflow] Archestra deployment info loaded:', {
+          agentId: data.archestraAgentId,
+          endpoint: data.archestraEndpoint,
+        });
+      }
     } catch (err) {
       console.error('[MCPWorkflow] Error fetching runtime status:', err);
     }
@@ -464,6 +483,53 @@ export default function MCPWorkflowDashboard({
       console.error('[MCPWorkflow] Save error:', err);
       addLog('error', '❌ Failed to save workflow', (err as Error).message);
       alert('❌ Failed to save workflow: ' + (err as Error).message);
+    }
+  };
+
+  const handleDeploy = async () => {
+    setIsDeploying(true);
+    addLog('info', '🚀 Deploying to Archestra...');
+    
+    try {
+      console.log('[MCPWorkflow] Deploying to Archestra...', { serverId });
+      
+      const response = await fetch(`${apiUrl}/mcp/servers/${serverId}/deploy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ownerId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to deploy to Archestra');
+      }
+
+      const result = await response.json();
+      console.log('[MCPWorkflow] Deployment successful:', result);
+      
+      setDeploymentInfo({
+        agentId: result.agentId,
+        endpoint: result.endpoint,
+        dashboardUrl: result.dashboardUrl,
+      });
+      
+      addLog('success', '✅ Deployed to Archestra successfully!', result);
+      
+      // Show success modal with deployment info
+      alert(`✅ Deployed Successfully!\n\nAgent ID: ${result.agentId}\nEndpoint: ${result.endpoint}\n\nClick OK to copy endpoint to clipboard.`);
+      
+      // Copy endpoint to clipboard
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(result.endpoint);
+      }
+    } catch (err) {
+      console.error('[MCPWorkflow] Deployment error:', err);
+      addLog('error', '❌ Failed to deploy to Archestra', (err as Error).message);
+      alert('❌ Failed to deploy: ' + (err as Error).message);
+    } finally {
+      setIsDeploying(false);
     }
   };
 
@@ -855,6 +921,31 @@ export default function MCPWorkflowDashboard({
             </button>
 
             <button
+              onClick={handleDeploy}
+              disabled={isDeploying || !!deploymentInfo}
+              className="px-4 py-2 text-[13px] font-medium text-purple-400 hover:text-purple-300 bg-purple-500/10 
+                  border border-purple-500/20 hover:border-purple-500/30 rounded-lg flex items-center gap-2 transition-all active:scale-95
+                  disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDeploying ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-purple-400/20 border-t-purple-400 rounded-full animate-spin" />
+                  <span>Deploying...</span>
+                </>
+              ) : deploymentInfo ? (
+                <>
+                  <Zap size={14} />
+                  <span>Deployed</span>
+                </>
+              ) : (
+                <>
+                  <Zap size={14} />
+                  <span>Deploy to Archestra</span>
+                </>
+              )}
+            </button>
+
+            <button
               onClick={handleRun}
               className="px-4 py-2 text-[13px] font-medium text-black bg-white hover:bg-white/90 rounded-lg 
                   flex items-center gap-2 transition-all active:scale-95"
@@ -864,6 +955,52 @@ export default function MCPWorkflowDashboard({
             </button>
           </div>
         </div>
+
+        {/* Deployment Info Banner */}
+        {deploymentInfo && (
+          <div className="px-6 py-3 bg-purple-500/10 border-b border-purple-500/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                  <Zap size={16} className="text-purple-400" />
+                </div>
+                <div>
+                  <div className="text-[13px] font-semibold text-purple-400">
+                    Deployed to Archestra
+                  </div>
+                  <div className="text-[11px] text-white/50">
+                    Agent ID: {deploymentInfo.agentId}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (navigator.clipboard) {
+                      navigator.clipboard.writeText(deploymentInfo.endpoint);
+                      addLog('info', '📋 Endpoint copied to clipboard');
+                    }
+                  }}
+                  className="px-3 py-1.5 text-[11px] font-medium text-purple-400 hover:text-purple-300 bg-purple-500/10 
+                      border border-purple-500/20 hover:border-purple-500/30 rounded-lg transition-all active:scale-95"
+                >
+                  Copy Endpoint
+                </button>
+                {deploymentInfo.dashboardUrl && (
+                  <a
+                    href={deploymentInfo.dashboardUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 text-[11px] font-medium text-purple-400 hover:text-purple-300 bg-purple-500/10 
+                        border border-purple-500/20 hover:border-purple-500/30 rounded-lg transition-all active:scale-95"
+                  >
+                    Open Dashboard
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Canvas Area */}
         <div className="flex-1 relative">

@@ -105,6 +105,11 @@ router.get('/servers/:serverId', async (req: Request, res: Response, next: NextF
       runtimeStatus,
       createdAt: server.createdAt,
       updatedAt: server.updatedAt,
+      // Archestra deployment info
+      archestraAgentId: server.archestraAgentId,
+      archestraEndpoint: server.archestraEndpoint,
+      archestraDashboardUrl: server.archestraDashboardUrl,
+      archestraDeployedAt: server.archestraDeployedAt,
     });
   } catch (error) {
     logger.error('[mcpServer] Error retrieving server', {
@@ -886,6 +891,95 @@ router.post('/api/:serverId', async (req: Request, res: Response, next: NextFunc
       error: (error as Error).message,
     });
     next(error);
+  }
+});
+
+/**
+ * POST /mcp/servers/:serverId/deploy
+ * Deploy MCP server to Archestra
+ */
+router.post('/servers/:serverId/deploy', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { serverId } = req.params;
+    const { ownerId } = req.body;
+
+    if (!ownerId) {
+      res.status(400).json({ error: 'ownerId required' });
+      return;
+    }
+
+    // Verify server exists
+    const server = await MCPServer.findOne({ serverId, ownerId });
+
+    if (!server) {
+      res.status(404).json({ error: 'Server not found' });
+      return;
+    }
+
+    // Check if already deployed
+    if (server.archestraAgentId) {
+      logger.warn('[archestraDeploy] Server already deployed', {
+        serverId,
+        agentId: server.archestraAgentId,
+      });
+      res.status(400).json({ 
+        error: 'Server already deployed to Archestra',
+        agentId: server.archestraAgentId,
+        endpoint: server.archestraEndpoint,
+        dashboardUrl: server.archestraDashboardUrl,
+      });
+      return;
+    }
+
+    // Import Archestra service
+    const { archestraService } = await import('../services/archestra.service');
+
+    // Deploy to Archestra
+    logger.info('[archestraDeploy] Deploying server to Archestra', {
+      serverId,
+      name: server.name,
+    });
+
+    const deploymentResult = await archestraService.deployToArchestra({
+      serverId: server.serverId,
+      name: server.name,
+      description: server.description,
+      tools: server.tools,
+      executionOrder: server.executionOrder,
+      ownerId: server.ownerId,
+      createdAt: server.createdAt,
+    });
+
+    // Save Archestra metadata to server
+    server.archestraAgentId = deploymentResult.agentId;
+    server.archestraEndpoint = deploymentResult.publicEndpoint;
+    server.archestraDashboardUrl = deploymentResult.dashboardUrl;
+    server.archestraDeployedAt = new Date();
+    await server.save();
+
+    logger.info('[archestraDeploy] Deployment successful', {
+      serverId,
+      agentId: deploymentResult.agentId,
+      endpoint: deploymentResult.publicEndpoint,
+    });
+
+    res.status(200).json({
+      success: true,
+      serverId,
+      agentId: deploymentResult.agentId,
+      endpoint: deploymentResult.publicEndpoint,
+      dashboardUrl: deploymentResult.dashboardUrl,
+      deployedAt: server.archestraDeployedAt,
+    });
+  } catch (error) {
+    logger.error('[archestraDeploy] Deployment failed', {
+      error: (error as Error).message,
+    });
+
+    res.status(500).json({
+      success: false,
+      error: (error as Error).message,
+    });
   }
 });
 

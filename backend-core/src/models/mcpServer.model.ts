@@ -19,6 +19,11 @@ export interface IMCPServer extends Document {
   createdAt: Date;
   updatedAt?: Date;
   ownerId?: string;
+  // Archestra deployment fields
+  archestraAgentId?: string;
+  archestraEndpoint?: string;
+  archestraDashboardUrl?: string;
+  archestraDeployedAt?: Date;
 }
 
 const MCPServerSchema = new Schema<IMCPServer>(
@@ -65,6 +70,20 @@ const MCPServerSchema = new Schema<IMCPServer>(
     ownerId: {
       type: String,
       index: true,
+    },
+    // Archestra deployment fields
+    archestraAgentId: {
+      type: String,
+      index: true,
+    },
+    archestraEndpoint: {
+      type: String,
+    },
+    archestraDashboardUrl: {
+      type: String,
+    },
+    archestraDeployedAt: {
+      type: Date,
     },
   },
   {

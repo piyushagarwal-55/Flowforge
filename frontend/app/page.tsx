@@ -8,7 +8,7 @@ import dynamic from "next/dynamic";
 
 // Dynamically import FlowForge components
 const WorkflowGraph = dynamic(
-  () => import("@/app/builder/page").then((mod) => ({ default: mod.default })),
+  () => import("@/components/WorkflowBuilder"),
   { ssr: false }
 );
 

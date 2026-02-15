@@ -51,16 +51,14 @@ type ExecutionLog = {
 };
 
 interface WorkflowPageProps {
-  params?: any;
-  searchParams?: any;
   workflowId?: string;
 }
 
-export default function WorkflowPage(props: WorkflowPageProps) {
+export default function WorkflowPage({ workflowId: propWorkflowId }: WorkflowPageProps) {
   // For client components, we don't use server props
   // These would come from URL or state if needed
   const autoGeneratePrompt: string | undefined = undefined;
-  const workflowId: string | undefined = props.workflowId;
+  const workflowId: string | undefined = propWorkflowId;
   const ownerId: string = "user_default";
   const [graphMeta, setGraphMeta] = useState<any>(null);
   const dbSchemas = useSelector((state: RootState) => state.dbSchemas.schemas);

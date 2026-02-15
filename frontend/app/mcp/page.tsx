@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Server, Play, Zap, Shield, Activity, Plus, ArrowRight, ExternalLink, Copy, Check, TestTube } from "lucide-react";
 import { listMCPServers, startRuntime } from "@/lib/mcpApi";
@@ -19,7 +19,7 @@ interface MCPServer {
   createdAt: string;
 }
 
-export default function MCPDashboard() {
+function MCPDashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [servers, setServers] = useState<MCPServer[]>([]);
@@ -415,5 +415,17 @@ export default function MCPDashboard() {
         />
       )}
     </div>
+  );
+}
+
+export default function MCPDashboard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#111] to-[#0a0a0a] flex items-center justify-center">
+        <div className="w-12 h-12 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+      </div>
+    }>
+      <MCPDashboardContent />
+    </Suspense>
   );
 }

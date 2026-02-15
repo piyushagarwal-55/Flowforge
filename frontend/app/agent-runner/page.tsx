@@ -1,13 +1,13 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Server, Activity, AlertCircle, Sparkles } from 'lucide-react';
 import AgentRunner from '@/components/AgentRunner';
 import { listMCPServers, startRuntime } from '@/lib/mcpApi';
 
-export default function AgentRunnerPage() {
+function AgentRunnerPageContent() {
   const searchParams = useSearchParams();
   const serverIdFromUrl = searchParams.get('serverId');
   
@@ -223,5 +223,21 @@ export default function AgentRunnerPage() {
         )}
       </div>
     </div>
+  );
+}
+
+
+export default function AgentRunnerPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#111] to-[#0a0a0a] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin mx-auto mb-4"></div>
+          <p className="text-white/60">Loading...</p>
+        </div>
+      </div>
+    }>
+      <AgentRunnerPageContent />
+    </Suspense>
   );
 }

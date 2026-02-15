@@ -16,11 +16,12 @@ export function createServer(config: ServerConfig): {
   const app = express();
 
   // 1. CORS middleware - must be first to handle preflight requests
+  // Allow all origins in production to avoid CORS issues
   app.use(cors({
-    origin: config.corsOrigin,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    origin: config.environment === 'production' ? '*' : config.corsOrigin,
+    credentials: config.environment === 'production' ? false : true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   }));
 
   // 2. Body parser middleware

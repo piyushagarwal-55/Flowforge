@@ -4,7 +4,7 @@
 
 
 
-FlowForge is a **chat-first generative UI backend builder** that harnesses the power of [Tambo AI](https://tambo.ai/) to create production-ready APIs through natural conversation. No complex interfaces to learn, no manual coding required — just describe what you want, and watch the UI adapt to build it.
+FlowForge is a **chat-first generative UI backend builder** that harnesses the power of [Archestra Platform](https://archestra.ai/) to create production-ready APIs through natural conversation. No complex interfaces to learn, no manual coding required — just describe what you want, and watch the UI adapt to build it.
 
 **The Force is strong with this one:**
 - 💬 **Chat-First Interface** - Start with just a conversation
@@ -17,9 +17,9 @@ FlowForge is a **chat-first generative UI backend builder** that harnesses the p
 
 ## ✨ What Makes FlowForge Special?
 
-### 🌟 Generative UI Powered by Tambo
+### 🌟 Generative UI Powered by Archestra
 
-Unlike traditional backend builders that overwhelm you with complex interfaces, FlowForge uses **Tambo's Generative UI SDK** to create an adaptive experience:
+Unlike traditional backend builders that overwhelm you with complex interfaces, FlowForge uses **Archestra's Generative UI SDK** to create an adaptive experience:
 
 - **Start with just a chat input** - No overwhelming UI on first load
 - **Components appear based on intent** - The AI decides what you need to see
@@ -61,7 +61,7 @@ You: "create a user signup API with email validation"
 
 ### 2️⃣ AI Understands Your Intent
 
-FlowForge analyzes your message using **Tambo AI** to understand:
+FlowForge analyzes your message using **Archestra AI** to understand:
 - What you're trying to build
 - Which components you need to see
 - How to structure the workflow
@@ -108,9 +108,9 @@ You: "deploy this as an API"
 
 ## 🚀 Key Features
 
-### � Tambo-Powered Generative UI
+### 🌟 Archestra-Powered Generative UI
 
-The star of the show! FlowForge uses **Tambo AI (@tambo-ai/react v0.74.1)** to create an intent-driven interface:
+The star of the show! FlowForge uses **Archestra AI** to create an intent-driven interface:
 
 - **Intent Detection** - Analyzes your message to understand what you need
 - **Dynamic Component Mounting** - Shows only relevant UI components
@@ -211,7 +211,7 @@ From workflow to production API in seconds:
 ┌────────────────────────────────────────────────────────────┐
 │                  FRONTEND (Next.js 15)                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │  Tambo AI    │  │    Chat      │  │ React Flow   │      │
+│  │ Archestra AI │  │    Chat      │  │ React Flow   │      │
 │  │  Provider    │  │  Interface   │  │   Canvas     │      │
 │  │  (Intent)    │  │              │  │              │      │
 │  └──────────────┘  └──────────────┘  └──────────────┘      │
@@ -258,7 +258,7 @@ ai-intent.step.ts analyzes prompt
     ↓
 Returns: { components: ["WorkflowGraph"], workflowId, ... }
     ↓
-TamboProvider mounts components dynamically
+ArchestraProvider mounts components dynamically
     ↓
 UI adapts to user intent
     ↓
@@ -279,7 +279,7 @@ React Flow renders on canvas
 | **Next.js** | 15.5.9 | React framework with App Router |
 | **React** | 19.2.1 | UI library |
 | **Bun** | 1.2.15 | JavaScript runtime & package manager |
-| **@tambo-ai/react** | 0.74.1 | **🌟 Generative UI SDK** |
+| **Archestra Platform** | - | **🌟 Generative UI SDK** |
 | **@xyflow/react** | 12.10.0 | Visual workflow canvas |
 | **Redux Toolkit** | 2.11.2 | State management |
 | **Socket.io-client** | 4.8.1 | Real-time communication |
@@ -314,7 +314,7 @@ React Flow renders on canvas
 
 - **Bun** 1.2.15+ ([Install Bun](https://bun.sh/))
 - **MongoDB** (local or Atlas)
-- **Tambo API Key** ([Get one here](https://tambo.ai/))
+- **Archestra API Key** ([Get one here](https://archestra.ai/))
 - **Groq API Key** ([Get one here](https://console.groq.com/))
 
 ### 1. Clone the Repository
@@ -341,7 +341,7 @@ bun install
 **Frontend `.env.local`:**
 
 ```bash
-NEXT_PUBLIC_TAMBO_API_KEY=tambo_your_actual_key_here
+NEXT_PUBLIC_ARCHESTRA_API_KEY=archestra_your_actual_key_here
 NEXT_PUBLIC_BACKEND_URL=http://localhost:3000
 ```
 
@@ -363,7 +363,7 @@ SMTP_PASS=your-app-password
 
 ```bash
 # Terminal 1 - Backend
-cd backend
+cd backend-core
 bun run dev
 
 # Terminal 2 - Frontend
@@ -406,16 +406,16 @@ Watch the workflow evolve across messages!
 
 ---
 
-## � Hackathon Highlights
+## 🏆 Hackathon Highlights
 
-### Why FlowForge is Perfect for "The UI Strikes Back"
+### Why FlowForge is Perfect for Archestra Hackathon
 
 **1. Generative UI at Its Core**
-- Uses Tambo AI to dynamically mount components based on user intent
+- Uses Archestra AI to dynamically mount components based on user intent
 - No static interfaces - the UI adapts to what you're trying to do
 - Progressive revelation keeps cognitive load minimal
 
-**2. Best Use Case of Tambo**
+**2. Best Use Case of Archestra Platform**
 - **Intent-driven component mounting** - Chat message → AI analysis → Dynamic UI
 - **Conversational state management** - Workflow persists across messages
 - **Context-aware UI** - Shows only relevant components at the right time
@@ -431,7 +431,7 @@ Watch the workflow evolve across messages!
 - **Democratizes backend development** - Non-coders can build APIs
 - **10x faster development** - From idea to production in minutes
 - **Reduces complexity** - No overwhelming dashboards or menus
-- **Scalable architecture** - Built on Motia's production-grade framework
+- **Scalable architecture** - Built on Archestra's production-grade platform
 
 ### Demo Flow
 
@@ -452,7 +452,7 @@ Watch the workflow evolve across messages!
    → DeployPanel appears, one-click deployment
 ```
 
-**The UI literally strikes back** - adapting to user intent instead of forcing users to adapt to the UI!
+**Powered by Archestra** - adapting to user intent instead of forcing users to adapt to the UI!
 
 ---
 
@@ -479,7 +479,7 @@ bun run test:real      # Real Tambo + Groq
 
 **Test Results:**
 - ✅ 24/24 tests passing
-- ✅ Real Tambo integration verified
+- ✅ Real Archestra integration verified
 - ✅ Real Groq workflow generation verified
 - ✅ Production-ready
 
@@ -526,7 +526,7 @@ bun run test:real      # Real Tambo + Groq
 
 **Backend (Motia):**
 ```bash
-cd backend
+cd backend-core
 bun run build
 bun run start
 ```
@@ -547,29 +547,27 @@ bun run start
 
 ## 🤝 Contributing
 
-We welcome contributions! This project was built for "The UI Strikes Back" hackathon, showcasing the power of Tambo's Generative UI.
+We welcome contributions! This project was built for the Archestra Hackathon, showcasing the power of Archestra's Generative UI platform.
 
 ---
 
-## 📄 License
 
-MIT License - feel free to use this project as inspiration for your own Tambo applications!
 
 ---
 
 ## 🙏 Acknowledgments
 
-- **[Tambo AI](https://tambo.ai/)** - For the amazing Generative UI SDK
+- **[Archestra Platform](https://archestra.ai/)** - For the amazing Generative UI SDK
 - **[Groq](https://groq.com/)** - For blazing-fast AI inference
-- **"The UI Strikes Back" Hackathon** - For the inspiration to build this
+- **Archestra Hackathon** - For the inspiration to build this
 
 ---
 
 ## 🌟 Star Us!
 
-If you find FlowForge useful, please star the repository and share it with others building with Tambo!
+If you find FlowForge useful, please star the repository and share it with others building with Archestra!
 
-**May the Force (of Generative UI) be with you!** ⚡
+**Built with Archestra - The Future of Generative UI!** ⚡
 
 
 

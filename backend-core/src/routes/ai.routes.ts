@@ -317,7 +317,8 @@ router.post('/generate-mcp-server', async (req: Request, res: Response, next: Ne
     });
 
     // Generate API metadata (Tambo-style publishing)
-    const apiUrl = process.env.API_URL || 'http://localhost:4000';
+    // Use PUBLIC_URL for production, fallback to localhost for development
+    const apiUrl = process.env.PUBLIC_URL || process.env.API_URL || 'http://localhost:4000';
     const apiEndpoint = `${apiUrl}/mcp/api/${mcpServer.serverId}`;
     
     // Generate example curl command

@@ -52,7 +52,7 @@ export default function LandingPage() {
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-white/[0.08] mb-8"
               >
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-xs font-medium text-white/70">Built for Tambo Hackathon</span>
+                <span className="text-xs font-medium text-white/70">Built for Archestra Hackathon</span>
               </motion.div>
 
               {/* Main Headline */}
@@ -387,7 +387,7 @@ export default function LandingPage() {
       <footer className={`border-t ${COLORS.border_primary} py-8 px-6`}>
         <div className="max-w-6xl mx-auto text-center">
           <p className={`${TYPOGRAPHY.body_xs} ${COLORS.text_muted}`}>
-            Built for The UI Strikes Back Hackathon • Powered by Tambo AI
+            Built for Archestra Hackathon
           </p>
         </div>
       </footer>

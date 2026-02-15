@@ -264,7 +264,7 @@ function OrchetrixWorkspace() {
                   Welcome to FlowForge
                 </h1>
                 <p className="text-[15px] text-white/50 max-w-md">
-                  Describe the backend you want to build, and I'll create it for you.
+                  Describe your API in plain English, and I'll generate a complete MCP server with tools, workflows, and live endpoints - ready to use instantly.
                 </p>
               </div>
             </div>

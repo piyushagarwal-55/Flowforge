@@ -500,7 +500,23 @@ export function registerBuiltInTools(): void {
       const subject = resolveObject(context.vars, input.subject);
       const body = resolveObject(context.vars, input.body);
 
+      // Debug logging
+      logger.debug('[emailSend] Resolving variables', {
+        inputTo: input.to,
+        resolvedTo: to,
+        inputSubject: input.subject,
+        resolvedSubject: subject,
+        contextVars: Object.keys(context.vars || {}),
+        contextVarsValues: context.vars,
+      });
+
       if (!to || typeof to !== "string") {
+        logger.error('[emailSend] Invalid recipient', {
+          to,
+          typeOfTo: typeof to,
+          inputTo: input.to,
+          contextVars: Object.keys(context.vars || {}),
+        });
         throw new Error(
           "Email recipient (to) is required and must be a valid string"
         );
@@ -516,12 +532,14 @@ export function registerBuiltInTools(): void {
         throw new Error("Email body is required");
       }
 
-      await sendEmail({ to, subject, body });
+      // Send email but don't fail the workflow if it fails
+      const result = await sendEmail({ to, subject, body });
 
       return {
-        sent: true,
+        sent: result.success,
         recipient: to,
         timestamp: new Date().toISOString(),
+        error: result.success ? undefined : result.error,
       };
     },
   });
@@ -557,6 +575,94 @@ export function registerBuiltInTools(): void {
       return {
         status,
         body: resolvedBody,
+      };
+    },
+  });
+
+  // USER LOGIN TOOL
+  toolRegistry.registerTool({
+    toolId: "userLogin",
+    name: "User Login",
+    description: "Authenticates user with email and password, returns JWT token",
+    inputSchema: {
+      type: "object",
+      properties: {
+        collection: { type: "string", default: "users" },
+        emailField: { type: "string", default: "email" },
+        passwordField: { type: "string", default: "password" },
+        email: { type: "string" },
+        password: { type: "string" },
+        output: { type: "string", default: "user" },
+      },
+      required: ["email", "password"],
+    },
+    outputSchema: {
+      type: "object",
+      properties: {
+        success: { type: "boolean", description: "Login success status" },
+        token: { type: "string", description: "JWT token" },
+        user: { type: "object", description: "User data (without password)" },
+      },
+    },
+    handler: async (input: any, context: any) => {
+      const {
+        collection = "users",
+        emailField = "email",
+        passwordField = "password",
+        email,
+        password,
+        output = "user",
+      } = input;
+
+      const Model = getModel(collection);
+      if (!Model) {
+        throw new Error(`Model not found for collection: ${collection}`);
+      }
+
+      // Resolve email and password from context
+      const resolvedEmail = resolveObject(context.vars, email);
+      const resolvedPassword = resolveObject(context.vars, password);
+
+      // Find user by email
+      const user = await Model.findOne({ [emailField]: resolvedEmail });
+      if (!user) {
+        throw new Error("Invalid email or password");
+      }
+
+      // Verify password
+      const isValidPassword = await bcrypt.compare(
+        resolvedPassword,
+        user[passwordField]
+      );
+      if (!isValidPassword) {
+        throw new Error("Invalid email or password");
+      }
+
+      // Generate JWT token
+      if (!process.env.JWT_SECRET) {
+        throw new Error("JWT_SECRET is not configured");
+      }
+
+      const token = jwt.sign(
+        {
+          userId: user._id,
+          email: user[emailField],
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      // Remove password from user object
+      const userObj = user.toObject();
+      delete userObj[passwordField];
+
+      context.vars[output] = userObj;
+      context.vars.token = token;
+
+      return {
+        success: true,
+        token,
+        user: userObj,
       };
     },
   });

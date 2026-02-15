@@ -43,6 +43,38 @@ response
 Using ANY other node type makes the workflow INVALID.
 
 =====================================================
+TOOL-SPECIFIC FIELD REQUIREMENTS
+=====================================================
+
+emailSend MUST include:
+- to: "{{email}}" (or other variable containing email address)
+- subject: "Welcome" (or other string)
+- body: "Your account has been created" (or other string)
+
+Example:
+{
+  "id": "send_email",
+  "type": "emailSend",
+  "data": {
+    "label": "Send Email",
+    "fields": {
+      "to": "{{email}}",
+      "subject": "Welcome to our platform",
+      "body": "Your account has been created successfully"
+    }
+  }
+}
+
+❌ WRONG (empty strings):
+{
+  "fields": {
+    "to": "",
+    "subject": "",
+    "body": ""
+  }
+}
+
+=====================================================
 CRITICAL: JWT PAYLOAD REQUIREMENT
 =====================================================
 
@@ -110,17 +142,6 @@ User requests: "create signup API"
 
 User requests: "create login API"
 → DO NOT include authMiddleware (public endpoint)
-
-FLOW PATTERNS:
-
-Signup Flow (NO authMiddleware):
-input → inputValidation → dbInsert → jwtGenerate → emailSend → response
-
-Login Flow (NO authMiddleware):
-input → inputValidation → dbFind → jwtGenerate → response
-
-Protected Endpoint (YES authMiddleware):
-input → authMiddleware → dbFind → response
 
 =====================================================
 VARIABLE LIFECYCLE RULE (CRITICAL – DO NOT VIOLATE)

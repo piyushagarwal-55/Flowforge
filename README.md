@@ -2,7 +2,7 @@
 
 > **"The backend that adapts to you, not the other way around."**
 
-**Built for [The UI Strikes Back Hackathon](https://tambo.ai/hackathon)** 🚀
+
 
 FlowForge is a **chat-first generative UI backend builder** that harnesses the power of [Tambo AI](https://tambo.ai/) to create production-ready APIs through natural conversation. No complex interfaces to learn, no manual coding required — just describe what you want, and watch the UI adapt to build it.
 

@@ -8,22 +8,11 @@ All tests passing with real Tambo and Groq APIs!
 
 ## 🎯 Quick Commands
 
-### Check Configuration
-```bash
-cd frontend
-bun run check:keys
-```
-
-### Run Real Integration Tests
-```bash
-cd frontend
-bun run test:real
-```
 
 ### Start the System
 ```bash
 # Terminal 1: Backend
-cd backend
+cd backend-core
 bun run dev
 
 # Terminal 2: Frontend
@@ -157,7 +146,7 @@ mongod --version
 cat backend/.env
 
 # Restart backend
-cd backend
+cd backend-core
 bun run dev
 ```
 
